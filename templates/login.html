@@ -1,6 +1,9 @@
 <!DOCTYPE html>
+
 <html lang="pt-BR">
+
 <head>
+
     <meta charset="UTF-8">
 
     <meta
@@ -9,17 +12,12 @@
     >
 
     <meta
-        name="csrf-token"
-        content="{{ csrf_token() }}"
-    >
-
-    <meta
         name="robots"
         content="noindex,nofollow"
     >
 
     <title>
-        Entrar – {{ salao.nome }}
+        Login · {{ salao.nome }}
     </title>
 
     <link
@@ -42,53 +40,64 @@
         rel="stylesheet"
         href="{{ url_for('static', filename='style.css') }}"
     >
+
 </head>
+
 
 <body class="pagina-login">
 
+
     <main class="login">
+
 
         <a
             class="logo login-logo"
             href="{{ url_for('home') }}"
         >
+
             <span>
                 {{ salao.nome }}
             </span>
 
             <small>
-                Área do salão
+                Área administrativa
             </small>
+
         </a>
 
 
-        <section
-            class="login-card"
-            aria-labelledby="titulo-login"
-        >
+        <section class="login-card">
+
 
             <p class="eyebrow">
-                Área administrativa
+                Acesso restrito
             </p>
 
-            <h1 id="titulo-login">
+
+            <h1>
                 Entrar
             </h1>
 
 
             {% if desativado %}
 
-                <div class="alerta erro">
-                    A área administrativa está desativada.
 
-                    Configure o arquivo
-                    <code>segredos.py</code>
-                    antes de usar o painel.
+                <div class="alerta erro">
+
+                    O acesso administrativo
+                    não está configurado.
+
+                    Verifique o arquivo
+                    de segredos do projeto.
+
                 </div>
+
 
             {% else %}
 
+
                 {% if erro %}
+
 
                     <div
                         class="alerta erro"
@@ -97,17 +106,21 @@
                         {{ erro }}
                     </div>
 
+
                 {% endif %}
 
 
                 <form
                     method="post"
-                    autocomplete="on"
+                    action="{{ url_for('admin_login') }}"
                 >
+
 
                     <input
                         type="hidden"
+
                         name="csrf_token"
+
                         value="{{ csrf_token() }}"
                     >
 
@@ -116,13 +129,17 @@
                         Senha
                     </label>
 
+
                     <input
                         id="senha"
+
                         name="senha"
+
                         type="password"
+
                         autocomplete="current-password"
+
                         required
-                        autofocus
                     >
 
 
@@ -133,7 +150,9 @@
                         Entrar
                     </button>
 
+
                 </form>
+
 
             {% endif %}
 
@@ -142,12 +161,16 @@
                 class="voltar"
                 href="{{ url_for('home') }}"
             >
-                Voltar para o site
+                ← Voltar para o site
             </a>
+
 
         </section>
 
+
     </main>
 
+
 </body>
+
 </html>
