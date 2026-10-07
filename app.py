@@ -1,4 +1,5 @@
 import hmac
+import json
 import os
 import re
 import secrets
@@ -11,6 +12,7 @@ from zoneinfo import ZoneInfo
 
 from flask import (
     Flask,
+    abort,
     flash,
     jsonify,
     redirect,
@@ -20,47 +22,86 @@ from flask import (
     url_for,
 )
 
+
 app = Flask(__name__)
 
+
 # ============================================================
-# CONFIGURAÇÃO E SEGREDOS
+# SEGREDOS / SESSÃO
 # ============================================================
-# A senha e a chave permanente podem ficar em segredos.py:
-#
-# ADMIN_SENHA = "uma-senha-forte"
-# SECRET_KEY = "uma-chave-longa-e-aleatoria"
-#
-# O arquivo segredos.py NÃO deve ser enviado ao Git.
+
 try:
     import segredos
 
-    ADMIN_SENHA = str(segredos.ADMIN_SENHA)
-    SECRET_KEY = str(segredos.SECRET_KEY)
-except (ImportError, AttributeError):
-    # O site público continua funcionando, mas o /admin fica desativado.
-    # A chave aleatória evita usar uma chave previsível como "sem-segredos".
+    ADMIN_SENHA = getattr(segredos, "ADMIN_SENHA", None)
+    SECRET_KEY = getattr(segredos, "SECRET_KEY", None)
+
+except ImportError:
     ADMIN_SENHA = None
-    SECRET_KEY = os.environ.get("SECRET_KEY") or secrets.token_hex(32)
+    SECRET_KEY = None
+
+
+ADMIN_SENHA = (
+    ADMIN_SENHA
+    or os.environ.get("ADMIN_SENHA")
+)
+
+
+SECRET_KEY = (
+    SECRET_KEY
+    or os.environ.get("SECRET_KEY")
+    or secrets.token_hex(32)
+)
+
 
 app.secret_key = SECRET_KEY
+
 
 app.config.update(
     SESSION_COOKIE_SAMESITE="Lax",
     SESSION_COOKIE_HTTPONLY=True,
-    # Em produção com HTTPS, defina COOKIE_SECURE=1.
-    SESSION_COOKIE_SECURE=os.environ.get("COOKIE_SECURE") == "1",
+    SESSION_COOKIE_SECURE=(
+        os.environ.get("COOKIE_SECURE") == "1"
+    ),
+    PERMANENT_SESSION_LIFETIME=timedelta(hours=12),
 )
 
-app.permanent_session_lifetime = timedelta(hours=12)
 
-PASTA = Path(__file__).resolve().parent
+# ============================================================
+# CAMINHOS / HORÁRIO
+# ============================================================
+
+PASTA = Path(__file__).parent
+
 BANCO = PASTA / "agenda.db"
+
 FUSO = ZoneInfo("America/Sao_Paulo")
 
-# ============================================================
-# DADOS DO SALÃO
-# ============================================================
-DIAS_PADRAO = [1, 2, 3, 4, 5]  # Terça a sábado
+
+def agora():
+    return datetime.now(
+        FUSO
+    ).replace(
+        tzinfo=None
+    )
+
+
+# Segunda = 0
+# Terça = 1
+# Quarta = 2
+# Quinta = 3
+# Sexta = 4
+# Sábado = 5
+# Domingo = 6
+
+DIAS_PADRAO = [
+    1,
+    2,
+    3,
+    4,
+    5,
+]
+
 
 HORARIOS_PADRAO = [
     "09:00",
@@ -74,6 +115,7 @@ HORARIOS_PADRAO = [
     "17:00",
 ]
 
+
 NOMES_DIAS = [
     "Segunda",
     "Terça",
@@ -83,6 +125,7 @@ NOMES_DIAS = [
     "Sábado",
     "Domingo",
 ]
+
 
 ABREV_DIAS = [
     "Seg",
@@ -94,402 +137,788 @@ ABREV_DIAS = [
     "Dom",
 ]
 
+
+# ============================================================
+# DADOS DO STUDIO
+# ============================================================
+
 salao = {
-    "nome": "Studio Bastos",
-    "slogan": "Beleza e bem-estar",
-    "whatsapp": "5511972199804",
-    "telefone": "(11) 97219-9804",
-    "instagram": "studiobastos.53",
-    "funcionamento": "Ter a Sáb · 9h às 18h",
+
+    "nome":
+        "Studio Bastos",
+
+    "slogan":
+        "Beleza e bem-estar",
+
+    "whatsapp":
+        "(11) 97219-9804",
+
+    "telefone":
+        "+55 (11) 97219-9804",
+
+    "instagram":
+        "studiobastos.53",
+
+    "funcionamento":
+        " 9h às 18h",
+
+    # Depois troque pelo endereço correto
+    "endereco": "R. Itaquaquecetuba, 144 - Grajaú, São Paulo - SP, 04840-190, Brasil",
+
+    "maps": "https://maps.app.goo.gl/FZxC1x5G9EFuv3vr8",
+
+    "pagamentos":
+        "Consulte as formas de pagamento pelo WhatsApp.",
 }
+
+
+# ============================================================
+# DIFERENCIAIS
+# ============================================================
 
 diferenciais = [
+
     {
-        "titulo": "Agendamento fácil",
-        "texto": "Escolha o serviço, o dia e o horário em poucos cliques.",
+        "titulo":
+            "Agendamento fácil",
+
+        "texto":
+            "Escolha os serviços, o dia e o horário em poucos passos.",
     },
+
     {
-        "titulo": "Atendimento personalizado",
-        "texto": "Cada trabalho é pensado para o seu estilo.",
+        "titulo":
+            "Atendimento personalizado",
+
+        "texto":
+            "Cada combinação é pensada de acordo com o estilo da cliente.",
     },
+
     {
-        "titulo": "Higiene e segurança",
-        "texto": "Materiais esterilizados e ambiente cuidado.",
+        "titulo":
+            "Higiene e cuidado",
+
+        "texto":
+            "Organização e atenção aos detalhes durante o atendimento.",
     },
+
     {
-        "titulo": "Acabamento de qualidade",
-        "texto": "Naturalidade e durabilidade em cada detalhe.",
+        "titulo":
+            "Acabamento de qualidade",
+
+        "texto":
+            "Cuidado em cada etapa para um resultado bonito e bem finalizado.",
     },
+
 ]
 
-sobre = {
-    "titulo": "Conheça o Studio",
-    "texto": (
-        "Escreva aqui um parágrafo curto sobre o Studio Bastos, "
-        "contando a história do atendimento e o que as clientes "
-        "encontram no espaço."
-    ),
-}
+
+# ============================================================
+# SERVIÇOS
+# ============================================================
+
+# valor = valor em centavos.
+# Exemplo:
+# R$ 150,00 = 15000
+#
+# por_unha = True
+# permite escolher quantidade.
 
 servicos = {
+
     "Alongamento": [
+
         {
-            "nome": "Fibra de vidro",
-            "preco": "R$ 150,00",
+            "nome":
+                "Fibra de vidro",
+
+            "preco":
+                "R$ 150,00",
+
+            "valor":
+                15000,
+
+            "por_unha":
+                False,
         },
+
         {
-            "nome": "Molde F1",
-            "preco": "R$ 120,00",
+            "nome":
+                "Molde F1",
+
+            "preco":
+                "R$ 120,00",
+
+            "valor":
+                12000,
+
+            "por_unha":
+                False,
         },
+
         {
-            "nome": "Banho de gel",
-            "preco": "R$ 60,00",
+            "nome":
+                "Banho de gel",
+
+            "preco":
+                "R$ 60,00",
+
+            "valor":
+                6000,
+
+            "por_unha":
+                False,
         },
+
         {
-            "nome": "Blindagem",
-            "preco": "R$ 50,00",
+            "nome":
+                "Blindagem",
+
+            "preco":
+                "R$ 50,00",
+
+            "valor":
+                5000,
+
+            "por_unha":
+                False,
         },
+
     ],
+
 
     "Nail arts": [
+
         {
-            "nome": "Encapsulada",
-            "preco": "R$ 7,00",
-            "descricao": "Valor por unha",
+            "nome":
+                "Encapsulada",
+
+            "preco":
+                "R$ 7,00",
+
+            "valor":
+                700,
+
+            "descricao":
+                "Valor por unha",
+
+            "por_unha":
+                True,
         },
+
         {
-            "nome": "Francesinha",
-            "preco": "R$ 6,00",
+            "nome":
+                "Francesinha",
+
+            "preco":
+                "R$ 6,00",
+
+            "valor":
+                600,
+
+            "por_unha":
+                False,
         },
+
         {
-            "nome": "Adesivo",
-            "preco": "R$ 3,00",
+            "nome":
+                "Adesivo",
+
+            "preco":
+                "R$ 3,00",
+
+            "valor":
+                300,
+
+            "por_unha":
+                False,
         },
+
         {
-            "nome": "Pedraria",
-            "preco": "R$ 4,00",
+            "nome":
+                "Pedraria",
+
+            "preco":
+                "R$ 4,00",
+
+            "valor":
+                400,
+
+            "por_unha":
+                False,
         },
+
         {
-            "nome": "Outros",
-            "preco": "R$ 1,50",
+            "nome":
+                "Outros",
+
+            "preco":
+                "R$ 1,50",
+
+            "valor":
+                150,
+
+            "por_unha":
+                False,
         },
+
     ],
+
 
     "Manutenção": [
+
         {
-            "nome": "Manutenção de molde F1",
-            "preco": "R$ 80,00",
+            "nome":
+                "Manutenção de molde F1",
+
+            "preco":
+                "R$ 80,00",
+
+            "valor":
+                8000,
+
+            "por_unha":
+                False,
         },
+
         {
-            "nome": "Manutenção de fibra de vidro",
-            "preco": "R$ 90,00",
+            "nome":
+                "Manutenção de fibra de vidro",
+
+            "preco":
+                "R$ 90,00",
+
+            "valor":
+                9000,
+
+            "por_unha":
+                False,
         },
+
     ],
 
+
     "Outros": [
+
         {
-            "nome": "Remoção",
-            "preco": "R$ 30,00",
+            "nome":
+                "Remoção",
+
+            "preco":
+                "R$ 30,00",
+
+            "valor":
+                3000,
+
+            "por_unha":
+                False,
         },
+
         {
-            "nome": "Reposição de unha",
-            "preco": "R$ 10,00",
-            "descricao": "Valor por unha",
+            "nome":
+                "Reposição de unha",
+
+            "preco":
+                "R$ 10,00",
+
+            "valor":
+                1000,
+
+            "descricao":
+                "Valor por unha",
+
+            "por_unha":
+                True,
         },
+
         {
-            "nome": "Troca de formato",
-            "preco": "R$ 20,00",
+            "nome":
+                "Troca de formato",
+
+            "preco":
+                "R$ 20,00",
+
+            "valor":
+                2000,
+
+            "por_unha":
+                False,
         },
+
     ],
+
+}
+
+
+SERVICOS_POR_NOME = {
+
+    item["nome"]:
+        item
+
+    for itens
+    in servicos.values()
+
+    for item
+    in itens
+
 }
 
 
 # ============================================================
-# UTILITÁRIOS
+# CSRF
 # ============================================================
-def agora():
-    """
-    Retorna a data e hora atual no fuso de São Paulo.
 
-    O tzinfo é removido para facilitar comparações locais
-    com os horários salvos no sistema.
-    """
-    return datetime.now(FUSO).replace(tzinfo=None)
-
-
-def conectar():
-    con = sqlite3.connect(BANCO)
-
-    con.row_factory = sqlite3.Row
-
-    con.execute("PRAGMA foreign_keys = ON")
-
-    return con
-
-
-def validar_hora(valor):
-    return bool(
-        re.fullmatch(
-            r"(?:[01]\d|2[0-3]):[0-5]\d",
-            valor or "",
-        )
-    )
-
-
-def normalizar_horarios(valores):
-    """
-    Recebe horários separados e devolve
-    apenas horários válidos e ordenados.
-    """
-
-    resultado = set()
-
-    for valor in valores:
-        valor = valor.strip().replace("h", ":", 1)
-
-        if not valor:
-            continue
-
-        if re.fullmatch(r"\d{1,2}:\d{1,2}", valor):
-            h, m = valor.split(":", 1)
-
-            if 0 <= int(h) <= 23 and 0 <= int(m) <= 59:
-                resultado.add(
-                    f"{int(h):02d}:{int(m):02d}"
-                )
-
-    return sorted(resultado)
-
-
-def formatar_telefone(digitos):
-    if len(digitos) == 11:
-        return (
-            f"({digitos[:2]}) "
-            f"{digitos[2:7]}-"
-            f"{digitos[7:]}"
-        )
-
-    if len(digitos) == 10:
-        return (
-            f"({digitos[:2]}) "
-            f"{digitos[2:6]}-"
-            f"{digitos[6:]}"
-        )
-
-    return digitos
-
-
-def rotulo_data(iso):
-    d = date.fromisoformat(iso)
-
-    return (
-        f"{ABREV_DIAS[d.weekday()]}, "
-        f"{d.strftime('%d/%m/%Y')}"
-    )
-
-
-# ============================================================
-# PROTEÇÃO CSRF
-# ============================================================
 def csrf_token():
-    """
-    Cria um token de segurança por sessão.
 
-    Esse token será utilizado para proteger
-    as requisições POST.
-    """
-
-    token = session.get("csrf_token")
+    token = session.get(
+        "_csrf_token"
+    )
 
     if not token:
-        token = secrets.token_urlsafe(32)
-        session["csrf_token"] = token
+
+        token = secrets.token_urlsafe(
+            32
+        )
+
+        session[
+            "_csrf_token"
+        ] = token
 
     return token
 
 
-@app.context_processor
-def injetar_csrf():
-    return {
-        "csrf_token": csrf_token
-    }
+app.jinja_env.globals[
+    "csrf_token"
+] = csrf_token
 
 
-def exigir_csrf():
-    enviado = (
-        request.form.get("csrf_token")
-        or request.headers.get("X-CSRF-Token")
+@app.before_request
+def proteger_posts():
+
+    if request.method != "POST":
+        return None
+
+
+    esperado = session.get(
+        "_csrf_token",
+        ""
     )
 
-    esperado = session.get("csrf_token")
+
+    recebido = (
+
+        request.headers.get(
+            "X-CSRF-Token",
+            ""
+        )
+
+        or request.form.get(
+            "csrf_token",
+            ""
+        )
+
+    )
+
 
     if (
-        not esperado
-        or not enviado
-        or not hmac.compare_digest(
-            str(enviado),
-            str(esperado),
+        esperado
+        and recebido
+        and hmac.compare_digest(
+            esperado,
+            recebido
         )
     ):
-        return (
-            jsonify(
-                erro=(
-                    "Sessão de segurança inválida. "
-                    "Recarregue a página e tente novamente."
-                )
-            ),
-            400,
-        )
 
-    return None
+        return None
+
+
+    if request.path.startswith(
+        "/api/"
+    ):
+
+        return jsonify(
+            erro=(
+                "Sessão expirada. "
+                "Atualize a página e tente novamente."
+            )
+        ), 400
+
+
+    abort(400)
 
 
 # ============================================================
-# BANCO DE DADOS
+# BANCO
 # ============================================================
+
+def conectar():
+
+    con = sqlite3.connect(
+        BANCO
+    )
+
+    con.row_factory = (
+        sqlite3.Row
+    )
+
+    return con
+
+
 def criar_banco():
+
     with conectar() as con:
 
         con.execute(
             """
             CREATE TABLE IF NOT EXISTS agendamentos (
+
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+
                 servico TEXT NOT NULL,
+
                 data TEXT NOT NULL,
+
                 hora TEXT NOT NULL,
+
                 nome TEXT NOT NULL,
+
                 telefone TEXT NOT NULL,
+
                 criado_em TEXT NOT NULL,
+
                 UNIQUE (data, hora)
+
             )
             """
         )
+
 
         con.execute(
             """
             CREATE TABLE IF NOT EXISTS bloqueios (
+
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+
                 data TEXT NOT NULL,
+
                 hora TEXT,
+
                 motivo TEXT NOT NULL DEFAULT ''
+
             )
             """
         )
+
 
         con.execute(
             """
             CREATE TABLE IF NOT EXISTS config (
+
                 chave TEXT PRIMARY KEY,
+
                 valor TEXT NOT NULL
+
             )
             """
         )
 
-        con.execute(
-            """
-            CREATE INDEX IF NOT EXISTS
-            idx_agendamentos_data_hora
-            ON agendamentos(data, hora)
-            """
-        )
 
         con.execute(
             """
-            CREATE INDEX IF NOT EXISTS
-            idx_bloqueios_data_hora
-            ON bloqueios(data, hora)
+            CREATE INDEX IF NOT EXISTS idx_agendamentos_data_hora
+
+            ON agendamentos (
+                data,
+                hora
+            )
             """
         )
+
+
+        con.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_bloqueios_data_hora
+
+            ON bloqueios (
+                data,
+                hora
+            )
+            """
+        )
+
+
+# ============================================================
+# CONFIGURAÇÃO DE HORÁRIOS
+# ============================================================
+
+def normalizar_horarios(
+    texto
+):
+
+    horarios = set()
+
+
+    for pedaco in re.split(
+        r"[,;\s]+",
+        texto or ""
+    ):
+
+        pedaco = pedaco.strip()
+
+
+        if not pedaco:
+            continue
+
+
+        resultado = re.fullmatch(
+            r"(\d{1,2})[:h](\d{2})",
+            pedaco
+        )
+
+
+        if not resultado:
+
+            raise ValueError(
+                (
+                    f"Não entendi o horário "
+                    f"“{pedaco}”. "
+                    f"Use o formato 09:00."
+                )
+            )
+
+
+        hora = int(
+            resultado.group(1)
+        )
+
+
+        minuto = int(
+            resultado.group(2)
+        )
+
+
+        if (
+            hora > 23
+            or minuto > 59
+        ):
+
+            raise ValueError(
+                (
+                    f"Não entendi o horário "
+                    f"“{pedaco}”. "
+                    f"Use o formato 09:00."
+                )
+            )
+
+
+        horarios.add(
+            f"{hora:02d}:{minuto:02d}"
+        )
+
+
+    return sorted(
+        horarios
+    )
 
 
 def ler_config():
+
     with conectar() as con:
+
         linhas = con.execute(
-            "SELECT chave, valor FROM config"
+            """
+            SELECT chave, valor
+            FROM config
+            """
         ).fetchall()
 
+
     cfg = {
-        linha["chave"]: linha["valor"]
-        for linha in linhas
+
+        linha["chave"]:
+            linha["valor"]
+
+        for linha
+        in linhas
+
     }
 
+
     try:
+
         dias = sorted(
             {
-                int(x)
-                for x in cfg["dias_abertos"].split(",")
-                if x != ""
+                int(valor)
+
+                for valor
+                in cfg.get(
+                    "dias_abertos",
+                    ""
+                ).split(",")
+
+                if (
+                    valor != ""
+                    and 0 <= int(valor) <= 6
+                )
             }
         )
 
-        if any(
-            dia < 0 or dia > 6
-            for dia in dias
-        ):
-            raise ValueError
+    except ValueError:
 
-    except (KeyError, ValueError):
-        dias = list(DIAS_PADRAO)
+        dias = list(
+            DIAS_PADRAO
+        )
 
-    horarios = normalizar_horarios(
-        cfg.get(
-            "horarios",
-            "",
-        ).split(",")
-    )
+
+    if (
+        not dias
+        and "dias_abertos"
+        not in cfg
+    ):
+
+        dias = list(
+            DIAS_PADRAO
+        )
+
+
+    try:
+
+        horarios = normalizar_horarios(
+            cfg.get(
+                "horarios",
+                ""
+            )
+        )
+
+    except ValueError:
+
+        horarios = []
+
+
+    if not horarios:
+
+        horarios = list(
+            HORARIOS_PADRAO
+        )
+
 
     return (
         dias,
-        horarios or list(HORARIOS_PADRAO),
+        horarios
     )
 
 
-def salvar_config(chave, valor):
+def salvar_config(
+    chave,
+    valor
+):
+
     with conectar() as con:
+
         con.execute(
             """
-            INSERT OR REPLACE INTO config
-            (chave, valor)
+            INSERT OR REPLACE INTO config (
+                chave,
+                valor
+            )
             VALUES (?, ?)
             """,
             (
                 chave,
-                valor,
-            ),
+                valor
+            )
         )
 
 
-def horarios_do_dia(dia):
-    """
-    Retorna todos os horários configurados,
-    informando se cada horário está livre.
-    """
+def mes_permitido(
+    ano,
+    mes
+):
+
+    try:
+
+        alvo = date(
+            ano,
+            mes,
+            1
+        )
+
+    except ValueError:
+
+        return False
+
+
+    atual = agora().date().replace(
+        day=1
+    )
+
+
+    diferenca = (
+
+        (
+            alvo.year
+            - atual.year
+        )
+        * 12
+
+        + alvo.month
+        - atual.month
+
+    )
+
+
+    return (
+        0
+        <= diferenca
+        <= 11
+    )
+
+
+def horarios_do_dia(
+    dia
+):
 
     momento = agora()
 
-    dias, horarios = ler_config()
 
-    if (
-        dia.weekday() not in dias
-        or dia < momento.date()
-    ):
+    dias, horarios = (
+        ler_config()
+    )
+
+
+    if dia.weekday() not in dias:
+
         return []
 
+
+    if dia < momento.date():
+
+        return []
+
+
     iso = dia.isoformat()
+
 
     with conectar() as con:
 
         ocupados = {
+
             linha["hora"]
-            for linha in con.execute(
+
+            for linha
+            in con.execute(
                 """
                 SELECT hora
                 FROM agendamentos
                 WHERE data = ?
                 """,
-                (iso,),
+                (
+                    iso,
+                )
             )
+
         }
+
 
         bloqueios = con.execute(
             """
@@ -497,109 +926,515 @@ def horarios_do_dia(dia):
             FROM bloqueios
             WHERE data = ?
             """,
-            (iso,),
+            (
+                iso,
+            )
         ).fetchall()
 
-    # Se existir um bloqueio sem horário,
-    # significa que o dia inteiro está bloqueado.
+
     if any(
         bloqueio["hora"] is None
-        for bloqueio in bloqueios
+
+        for bloqueio
+        in bloqueios
     ):
+
         return []
 
+
     bloqueados = {
+
         bloqueio["hora"]
-        for bloqueio in bloqueios
+
+        for bloqueio
+        in bloqueios
+
+        if bloqueio["hora"]
+
     }
 
+
     resultado = []
+
 
     for hora in horarios:
 
         inicio = datetime.combine(
             dia,
+
             datetime.strptime(
                 hora,
-                "%H:%M",
-            ).time(),
+                "%H:%M"
+            ).time()
         )
 
+
         livre = (
+
             hora not in ocupados
+
             and hora not in bloqueados
+
             and inicio > momento
+
         )
+
 
         resultado.append(
             {
-                "hora": hora,
-                "livre": livre,
+                "hora":
+                    hora,
+
+                "livre":
+                    livre,
             }
         )
+
 
     return resultado
 
 
 # ============================================================
+# SERVIÇOS MÚLTIPLOS
+# ============================================================
+
+def formatar_moeda_centavos(
+    valor
+):
+
+    reais = (
+        valor / 100
+    )
+
+
+    texto = f"{reais:,.2f}"
+
+
+    texto = (
+        texto
+        .replace(
+            ",",
+            "X"
+        )
+        .replace(
+            ".",
+            ","
+        )
+        .replace(
+            "X",
+            "."
+        )
+    )
+
+
+    return (
+        f"R$ {texto}"
+    )
+
+
+def validar_servicos_recebidos(
+    dados
+):
+
+    recebidos = dados.get(
+        "servicos"
+    )
+
+
+    if not isinstance(
+        recebidos,
+        list
+    ):
+
+        raise ValueError(
+            "Escolha pelo menos um serviço."
+        )
+
+
+    if not recebidos:
+
+        raise ValueError(
+            "Escolha pelo menos um serviço."
+        )
+
+
+    if len(recebidos) > 20:
+
+        raise ValueError(
+            "Foram selecionados serviços demais."
+        )
+
+
+    nomes_vistos = set()
+
+    itens = []
+
+    total = 0
+
+
+    for recebido in recebidos:
+
+        if not isinstance(
+            recebido,
+            dict
+        ):
+
+            raise ValueError(
+                "Há um serviço inválido na seleção."
+            )
+
+
+        nome = str(
+            recebido.get(
+                "nome",
+                ""
+            )
+        ).strip()
+
+
+        if (
+            nome not in SERVICOS_POR_NOME
+            or nome in nomes_vistos
+        ):
+
+            raise ValueError(
+                "Há um serviço inválido na seleção."
+            )
+
+
+        nomes_vistos.add(
+            nome
+        )
+
+
+        cadastro = (
+            SERVICOS_POR_NOME[
+                nome
+            ]
+        )
+
+
+        if cadastro.get(
+            "por_unha"
+        ):
+
+            try:
+
+                quantidade = int(
+                    recebido.get(
+                        "quantidade",
+                        1
+                    )
+                )
+
+            except (
+                TypeError,
+                ValueError
+            ):
+
+                quantidade = 1
+
+
+            if (
+                quantidade < 1
+                or quantidade > 10
+            ):
+
+                raise ValueError(
+                    (
+                        "Informe de 1 a 10 para "
+                        f"{nome}."
+                    )
+                )
+
+        else:
+
+            quantidade = 1
+
+
+        subtotal = (
+            cadastro["valor"]
+            * quantidade
+        )
+
+
+        total += subtotal
+
+
+        itens.append(
+            {
+
+                "nome":
+                    nome,
+
+                "quantidade":
+                    quantidade,
+
+                "por_unha":
+                    bool(
+                        cadastro.get(
+                            "por_unha"
+                        )
+                    ),
+
+                "valor_unitario":
+                    cadastro["valor"],
+
+                "subtotal":
+                    subtotal,
+
+            }
+        )
+
+
+    return (
+        itens,
+        total
+    )
+
+
+def serializar_servicos(
+    itens,
+    total
+):
+
+    dados = {
+
+        "versao":
+            1,
+
+        "itens":
+            itens,
+
+        "total":
+            total,
+
+    }
+
+
+    return json.dumps(
+        dados,
+        ensure_ascii=False,
+        separators=(
+            ",",
+            ":"
+        )
+    )
+
+
+def ler_servicos_salvos(
+    valor
+):
+
+    """
+    Formato novo:
+    JSON com vários serviços.
+
+    Formato antigo:
+    texto simples com um serviço.
+
+    Assim os agendamentos antigos
+    continuam funcionando.
+    """
+
+    try:
+
+        dados = json.loads(
+            valor
+        )
+
+
+        if (
+            isinstance(
+                dados,
+                dict
+            )
+            and isinstance(
+                dados.get(
+                    "itens"
+                ),
+                list
+            )
+        ):
+
+            itens = []
+
+
+            for item in dados[
+                "itens"
+            ]:
+
+                quantidade = int(
+                    item.get(
+                        "quantidade",
+                        1
+                    )
+                )
+
+
+                subtotal = int(
+                    item.get(
+                        "subtotal",
+                        0
+                    )
+                )
+
+
+                itens.append(
+                    {
+
+                        "nome":
+                            str(
+                                item.get(
+                                    "nome",
+                                    "Serviço"
+                                )
+                            ),
+
+                        "quantidade":
+                            quantidade,
+
+                        "subtotal":
+                            (
+                                formatar_moeda_centavos(
+                                    subtotal
+                                )
+
+                                if subtotal
+
+                                else None
+                            ),
+
+                    }
+                )
+
+
+            total = int(
+                dados.get(
+                    "total",
+                    0
+                )
+            )
+
+
+            return {
+
+                "itens":
+                    itens,
+
+                "total":
+                    (
+                        formatar_moeda_centavos(
+                            total
+                        )
+
+                        if total
+
+                        else None
+                    ),
+
+            }
+
+
+    except (
+        json.JSONDecodeError,
+        TypeError,
+        ValueError
+    ):
+
+        pass
+
+
+    return {
+
+        "itens": [
+            {
+
+                "nome":
+                    valor,
+
+                "quantidade":
+                    1,
+
+                "subtotal":
+                    None,
+
+            }
+        ],
+
+        "total":
+            None,
+
+    }
+
+
+# ============================================================
 # PÁGINA PÚBLICA
 # ============================================================
+
 @app.route("/")
 def home():
+
     return render_template(
         "index.html",
         salao=salao,
         servicos=servicos,
         diferenciais=diferenciais,
-        sobre=sobre,
     )
 
 
 # ============================================================
-# API — CALENDÁRIO
+# API - MÊS
 # ============================================================
-@app.route("/api/mes")
+
+@app.route(
+    "/api/mes"
+)
 def api_mes():
 
     try:
+
         ano = int(
             request.args.get(
                 "ano",
-                "",
+                ""
             )
         )
+
 
         mes = int(
             request.args.get(
                 "mes",
-                "",
+                ""
             )
         )
 
-        dia = date(
-            ano,
-            mes,
-            1,
-        )
+    except ValueError:
 
-    except (TypeError, ValueError):
         return jsonify(
-            erro="Mês inválido."
+            {}
         ), 400
 
-    hoje = agora().date().replace(
-        day=1
+
+    if not mes_permitido(
+        ano,
+        mes
+    ):
+
+        return jsonify(
+            {}
+        ), 400
+
+
+    dia = date(
+        ano,
+        mes,
+        1
     )
 
-    limite = (
-        hoje.replace(day=1)
-        + timedelta(days=365)
-    ).replace(day=1)
-
-    if dia < hoje or dia > limite:
-        return jsonify({}), 400
 
     resultado = {}
+
 
     while dia.month == mes:
 
@@ -607,67 +1442,95 @@ def api_mes():
             dia
         )
 
+
         if horarios:
+
             resultado[
                 dia.isoformat()
             ] = sum(
+
                 1
-                for horario in horarios
-                if horario["livre"]
+
+                for horario
+                in horarios
+
+                if horario[
+                    "livre"
+                ]
+
             )
 
-        dia += timedelta(days=1)
 
-    return jsonify(resultado)
+        dia += timedelta(
+            days=1
+        )
+
+
+    return jsonify(
+        resultado
+    )
 
 
 # ============================================================
-# API — HORÁRIOS
+# API - HORÁRIOS
 # ============================================================
-@app.route("/api/horarios")
+
+@app.route(
+    "/api/horarios"
+)
 def api_horarios():
 
     try:
+
         dia = date.fromisoformat(
             request.args.get(
                 "data",
-                "",
+                ""
             )
         )
 
-    except (TypeError, ValueError):
+    except ValueError:
+
         return jsonify(
-            erro="Data inválida."
+            []
         ), 400
 
-    hoje = agora().date()
 
-    limite = (
-        hoje
-        + timedelta(days=366)
+    mes_do_dia = (
+        dia.replace(
+            day=1
+        )
     )
 
-    if dia < hoje or dia > limite:
-        return jsonify([])
+
+    if not mes_permitido(
+        mes_do_dia.year,
+        mes_do_dia.month
+    ):
+
+        return jsonify(
+            []
+        ), 400
+
 
     return jsonify(
-        horarios_do_dia(dia)
+        horarios_do_dia(
+            dia
+        )
     )
 
 
 # ============================================================
-# API — REALIZAR AGENDAMENTO
+# API - AGENDAR
 # ============================================================
+
 @app.route(
     "/api/agendar",
-    methods=["POST"],
+    methods=[
+        "POST"
+    ]
 )
 def api_agendar():
-
-    erro_csrf = exigir_csrf()
-
-    if erro_csrf:
-        return erro_csrf
 
     dados = (
         request.get_json(
@@ -676,175 +1539,269 @@ def api_agendar():
         or {}
     )
 
-    servico = str(
-        dados.get(
-            "servico",
-            "",
-        )
-    ).strip()
 
     nome = str(
         dados.get(
             "nome",
-            "",
+            ""
         )
     ).strip()
 
+
     telefone = "".join(
+
         caractere
-        for caractere in str(
+
+        for caractere
+        in str(
             dados.get(
                 "telefone",
-                "",
+                ""
             )
         )
+
         if caractere.isdigit()
+
     )
+
 
     hora = str(
         dados.get(
             "hora",
-            "",
+            ""
         )
     ).strip()
 
+
     try:
+
         dia = date.fromisoformat(
             str(
                 dados.get(
                     "data",
-                    "",
+                    ""
                 )
             )
         )
 
     except ValueError:
+
         return jsonify(
             erro="Data inválida."
         ), 400
 
-    nomes_validos = {
-        servico_item["nome"]
-        for itens in servicos.values()
-        for servico_item in itens
-    }
 
-    if servico not in nomes_validos:
+    try:
+
+        itens, total = (
+            validar_servicos_recebidos(
+                dados
+            )
+        )
+
+    except ValueError as erro:
+
         return jsonify(
-            erro="Escolha um serviço da lista."
+            erro=str(
+                erro
+            )
         ), 400
 
+
     if not nome:
+
         return jsonify(
             erro="Informe o seu nome."
         ), 400
 
+
     if len(nome) > 80:
+
         return jsonify(
             erro="O nome está muito longo."
         ), 400
 
-    if len(telefone) not in (10, 11):
+
+    if len(telefone) not in (
+        10,
+        11
+    ):
+
         return jsonify(
             erro="Informe um telefone com DDD."
         ), 400
 
-    if not validar_hora(hora):
-        return jsonify(
-            erro="Horário inválido."
-        ), 400
 
     livres = {
-        horario["hora"]
-        for horario in horarios_do_dia(dia)
-        if horario["livre"]
+
+        item["hora"]
+
+        for item
+        in horarios_do_dia(
+            dia
+        )
+
+        if item[
+            "livre"
+        ]
+
     }
 
+
     if hora not in livres:
+
         return jsonify(
             erro=(
-                "Esse horário não está mais disponível. "
-                "Escolha outro."
+                "Esse horário não está mais "
+                "disponível. Escolha outro."
             )
         ), 409
+
+
+    servicos_salvos = (
+        serializar_servicos(
+            itens,
+            total
+        )
+    )
+
 
     try:
 
         with conectar() as con:
+
             con.execute(
                 """
                 INSERT INTO agendamentos (
+
                     servico,
                     data,
                     hora,
                     nome,
                     telefone,
                     criado_em
+
                 )
                 VALUES (?, ?, ?, ?, ?, ?)
                 """,
+
                 (
-                    servico,
+                    servicos_salvos,
                     dia.isoformat(),
                     hora,
                     nome,
                     telefone,
                     agora().isoformat(),
-                ),
+                )
             )
+
 
     except sqlite3.IntegrityError:
 
         return jsonify(
             erro=(
-                "Esse horário acabou de ser reservado. "
-                "Escolha outro."
+                "Esse horário acabou de ser "
+                "reservado. Escolha outro."
             )
         ), 409
 
+
     return jsonify(
-        ok=True
+
+        ok=True,
+
+        total=formatar_moeda_centavos(
+            total
+        )
+
     )
 
 
 # ============================================================
-# ADMIN — PROTEÇÃO DE LOGIN
+# LOGIN ADMIN
 # ============================================================
-def exige_login(funcao):
 
-    @wraps(funcao)
+def exige_login(
+    funcao
+):
+
+    @wraps(
+        funcao
+    )
     def interna(
         *args,
-        **kwargs,
+        **kwargs
     ):
 
         if (
             not ADMIN_SENHA
-            or not session.get("admin")
+            or not session.get(
+                "admin"
+            )
         ):
+
             return redirect(
                 url_for(
                     "admin_login"
                 )
             )
 
+
         return funcao(
             *args,
-            **kwargs,
+            **kwargs
         )
+
 
     return interna
 
 
-# ============================================================
-# ADMIN — LOGIN
-# ============================================================
+def formatar_telefone(
+    digitos
+):
+
+    if len(digitos) == 11:
+
+        return (
+            f"({digitos[:2]}) "
+            f"{digitos[2:7]}-"
+            f"{digitos[7:]}"
+        )
+
+
+    if len(digitos) == 10:
+
+        return (
+            f"({digitos[:2]}) "
+            f"{digitos[2:6]}-"
+            f"{digitos[6:]}"
+        )
+
+
+    return digitos
+
+
+def rotulo_data(
+    iso
+):
+
+    dia = date.fromisoformat(
+        iso
+    )
+
+
+    return (
+        f"{ABREV_DIAS[dia.weekday()]}, "
+        f"{dia.strftime('%d/%m/%Y')}"
+    )
+
+
 @app.route(
     "/admin/login",
     methods=[
         "GET",
-        "POST",
-    ],
+        "POST"
+    ]
 )
 def admin_login():
 
@@ -857,53 +1814,50 @@ def admin_login():
             erro=None,
         )
 
+
     erro = None
+
 
     if request.method == "POST":
 
-        erro_csrf = exigir_csrf()
-
-        if erro_csrf:
-
-            return render_template(
-                "login.html",
-                salao=salao,
-                desativado=False,
-                erro=(
-                    "Sessão de segurança inválida. "
-                    "Recarregue a página."
-                ),
-            ), 400
-
         senha = request.form.get(
             "senha",
-            "",
+            ""
         )
+
 
         if hmac.compare_digest(
             senha.encode(),
-            ADMIN_SENHA.encode(),
+            ADMIN_SENHA.encode()
         ):
 
             session.clear()
 
-            session["admin"] = True
 
-            session["csrf_token"] = (
-                secrets.token_urlsafe(32)
-            )
+            session[
+                "admin"
+            ] = True
+
 
             session.permanent = True
 
+
             return redirect(
-                url_for("admin")
+                url_for(
+                    "admin"
+                )
             )
 
-        # Pequena espera contra tentativas
-        # repetidas de senha.
-        time.sleep(1)
 
-        erro = "Senha incorreta."
+        time.sleep(
+            1
+        )
+
+
+        erro = (
+            "Senha incorreta."
+        )
+
 
     return render_template(
         "login.html",
@@ -913,25 +1867,16 @@ def admin_login():
     )
 
 
-# ============================================================
-# ADMIN — SAIR
-# ============================================================
 @app.route(
     "/admin/sair",
-    methods=["POST"],
+    methods=[
+        "POST"
+    ]
 )
 def admin_sair():
 
-    if session.get("admin"):
-
-        erro_csrf = exigir_csrf()
-
-        if erro_csrf:
-            return redirect(
-                url_for("admin")
-            )
-
     session.clear()
+
 
     return redirect(
         url_for(
@@ -941,9 +1886,12 @@ def admin_sair():
 
 
 # ============================================================
-# ADMIN — PAINEL
+# PAINEL ADMIN
 # ============================================================
-@app.route("/admin")
+
+@app.route(
+    "/admin"
+)
 @exige_login
 def admin():
 
@@ -953,9 +1901,11 @@ def admin():
         .isoformat()
     )
 
+
     dias_abertos, horarios = (
         ler_config()
     )
+
 
     with conectar() as con:
 
@@ -966,8 +1916,11 @@ def admin():
             WHERE data >= ?
             ORDER BY data, hora
             """,
-            (hoje,),
+            (
+                hoje,
+            )
         ).fetchall()
+
 
         bloqueios = con.execute(
             """
@@ -976,62 +1929,147 @@ def admin():
             WHERE data >= ?
             ORDER BY data, hora
             """,
-            (hoje,),
+            (
+                hoje,
+            )
         ).fetchall()
 
+
     grupos = []
+
 
     for marcacao in marcacoes:
 
         if (
             not grupos
-            or grupos[-1]["data"]
-            != marcacao["data"]
+            or grupos[-1][
+                "data"
+            ] != marcacao[
+                "data"
+            ]
         ):
 
             grupos.append(
                 {
-                    "data": marcacao["data"],
-                    "rotulo": rotulo_data(
-                        marcacao["data"]
-                    ),
-                    "itens": [],
+
+                    "data":
+                        marcacao[
+                            "data"
+                        ],
+
+                    "rotulo":
+                        rotulo_data(
+                            marcacao[
+                                "data"
+                            ]
+                        ),
+
+                    "itens":
+                        [],
+
                 }
             )
 
-        grupos[-1]["itens"].append(
+
+        detalhes = (
+            ler_servicos_salvos(
+                marcacao[
+                    "servico"
+                ]
+            )
+        )
+
+
+        grupos[-1][
+            "itens"
+        ].append(
             {
-                "id": marcacao["id"],
-                "hora": marcacao["hora"],
-                "servico": marcacao["servico"],
-                "nome": marcacao["nome"],
-                "telefone": marcacao["telefone"],
-                "telefone_fmt": formatar_telefone(
-                    marcacao["telefone"]
-                ),
+
+                "id":
+                    marcacao[
+                        "id"
+                    ],
+
+                "hora":
+                    marcacao[
+                        "hora"
+                    ],
+
+                "nome":
+                    marcacao[
+                        "nome"
+                    ],
+
+                "telefone":
+                    marcacao[
+                        "telefone"
+                    ],
+
+                "telefone_fmt":
+                    formatar_telefone(
+                        marcacao[
+                            "telefone"
+                        ]
+                    ),
+
+                "servicos":
+                    detalhes[
+                        "itens"
+                    ],
+
+                "total_servicos":
+                    detalhes[
+                        "total"
+                    ],
+
             }
         )
 
+
     lista_bloqueios = [
+
         {
-            "id": bloqueio["id"],
-            "rotulo": rotulo_data(
-                bloqueio["data"]
-            ),
-            "hora": (
-                bloqueio["hora"]
-                or "Dia inteiro"
-            ),
-            "motivo": bloqueio["motivo"],
+
+            "id":
+                bloqueio[
+                    "id"
+                ],
+
+            "rotulo":
+                rotulo_data(
+                    bloqueio[
+                        "data"
+                    ]
+                ),
+
+            "hora":
+                (
+                    bloqueio[
+                        "hora"
+                    ]
+                    or "Dia inteiro"
+                ),
+
+            "motivo":
+                bloqueio[
+                    "motivo"
+                ],
+
         }
-        for bloqueio in bloqueios
+
+        for bloqueio
+        in bloqueios
+
     ]
+
 
     return render_template(
         "admin.html",
         salao=salao,
         grupos=grupos,
-        total=len(marcacoes),
+        total=len(
+            marcacoes
+        ),
         bloqueios=lista_bloqueios,
         hoje=hoje,
         horarios=horarios,
@@ -1048,30 +2086,19 @@ def admin():
 
 
 # ============================================================
-# ADMIN — CANCELAR AGENDAMENTO
+# CANCELAR
 # ============================================================
+
 @app.route(
     "/admin/cancelar/<int:id>",
-    methods=["POST"],
+    methods=[
+        "POST"
+    ]
 )
 @exige_login
-def admin_cancelar(id):
-
-    erro_csrf = exigir_csrf()
-
-    if erro_csrf:
-
-        flash(
-            (
-                "Sessão de segurança inválida. "
-                "Recarregue a página."
-            ),
-            "erro",
-        )
-
-        return redirect(
-            url_for("admin")
-        )
+def admin_cancelar(
+    id
+):
 
     with conectar() as con:
 
@@ -1080,87 +2107,90 @@ def admin_cancelar(id):
             DELETE FROM agendamentos
             WHERE id = ?
             """,
-            (id,),
+            (
+                id,
+            )
         )
+
 
     flash(
         (
             "Marcação cancelada. "
             "O horário voltou a ficar livre."
         ),
-        "ok",
+        "ok"
     )
+
 
     return redirect(
-        url_for("admin")
+        url_for(
+            "admin"
+        )
     )
 
 
 # ============================================================
-# ADMIN — BLOQUEAR DIA/HORÁRIO
+# BLOQUEAR
 # ============================================================
+
 @app.route(
     "/admin/bloquear",
-    methods=["POST"],
+    methods=[
+        "POST"
+    ]
 )
 @exige_login
 def admin_bloquear():
 
-    erro_csrf = exigir_csrf()
+    _, horarios = (
+        ler_config()
+    )
 
-    if erro_csrf:
-
-        flash(
-            (
-                "Sessão de segurança inválida. "
-                "Recarregue a página."
-            ),
-            "erro",
-        )
-
-        return redirect(
-            url_for("admin")
-        )
-
-    _, horarios = ler_config()
 
     motivo = (
-        request.form
-        .get(
+        request.form.get(
             "motivo",
-            "",
+            ""
         )
         .strip()[:80]
     )
 
+
     hora = (
-        request.form
-        .get(
+        request.form.get(
             "hora",
-            "",
+            ""
         )
         .strip()
     )
+
 
     try:
 
         dia = date.fromisoformat(
             request.form.get(
                 "data",
-                "",
+                ""
             )
         )
 
-    except (TypeError, ValueError):
+    except ValueError:
 
         flash(
-            "Escolha uma data válida para bloquear.",
-            "erro",
+            (
+                "Escolha uma data válida "
+                "para bloquear."
+            ),
+            "erro"
         )
 
+
         return redirect(
-            url_for("admin")
+            url_for(
+                "admin"
+            )
         )
+
 
     if dia < agora().date():
 
@@ -1169,28 +2199,42 @@ def admin_bloquear():
                 "Não dá para bloquear "
                 "um dia que já passou."
             ),
-            "erro",
+            "erro"
         )
+
 
         return redirect(
-            url_for("admin")
+            url_for(
+                "admin"
+            )
         )
 
-    if hora and hora not in horarios:
+
+    if (
+        hora
+        and hora not in horarios
+    ):
 
         flash(
             (
                 "Esse horário não existe "
                 "na sua lista de horários."
             ),
-            "erro",
+            "erro"
         )
+
 
         return redirect(
-            url_for("admin")
+            url_for(
+                "admin"
+            )
         )
 
-    iso = dia.isoformat()
+
+    iso = (
+        dia.isoformat()
+    )
+
 
     with conectar() as con:
 
@@ -1199,8 +2243,11 @@ def admin_bloquear():
             ja_existe = con.execute(
                 """
                 SELECT 1
+
                 FROM bloqueios
+
                 WHERE data = ?
+
                 AND (
                     hora = ?
                     OR hora IS NULL
@@ -1208,43 +2255,59 @@ def admin_bloquear():
                 """,
                 (
                     iso,
-                    hora,
-                ),
+                    hora
+                )
             ).fetchone()
+
 
             conflitos = con.execute(
                 """
                 SELECT COUNT(*)
+
                 FROM agendamentos
+
                 WHERE data = ?
+
                 AND hora = ?
                 """,
                 (
                     iso,
-                    hora,
-                ),
+                    hora
+                )
             ).fetchone()[0]
+
 
         else:
 
             ja_existe = con.execute(
                 """
                 SELECT 1
+
                 FROM bloqueios
+
                 WHERE data = ?
+
                 AND hora IS NULL
                 """,
-                (iso,),
+                (
+                    iso,
+                )
             ).fetchone()
+
 
             conflitos = con.execute(
                 """
                 SELECT COUNT(*)
+
                 FROM agendamentos
+
                 WHERE data = ?
                 """,
-                (iso,),
+                (
+                    iso,
+                )
             ).fetchone()[0]
+
 
         if ja_existe:
 
@@ -1253,12 +2316,16 @@ def admin_bloquear():
                     "Esse dia ou horário "
                     "já está bloqueado."
                 ),
-                "erro",
+                "erro"
             )
 
+
             return redirect(
-                url_for("admin")
+                url_for(
+                    "admin"
+                )
             )
+
 
         con.execute(
             """
@@ -1267,14 +2334,16 @@ def admin_bloquear():
                 hora,
                 motivo
             )
+
             VALUES (?, ?, ?)
             """,
             (
                 iso,
                 hora or None,
-                motivo,
-            ),
+                motivo
+            )
         )
+
 
     if conflitos:
 
@@ -1282,53 +2351,43 @@ def admin_bloquear():
             (
                 f"Bloqueado! Atenção: já existia(m) "
                 f"{conflitos} marcação(ões) nesse período. "
-                "Elas continuam na agenda; "
-                "cancele se precisar."
+                "Elas continuam na agenda; cancele se precisar."
             ),
-            "erro",
+            "erro"
         )
 
     else:
 
         flash(
             (
-                "Bloqueado! As clientes "
-                "não conseguem mais marcar "
-                "nesse período."
+                "Bloqueado! As clientes não conseguem "
+                "mais marcar nesse período."
             ),
-            "ok",
+            "ok"
         )
 
+
     return redirect(
-        url_for("admin")
+        url_for(
+            "admin"
+        )
     )
 
 
 # ============================================================
-# ADMIN — DESBLOQUEAR
+# DESBLOQUEAR
 # ============================================================
+
 @app.route(
     "/admin/desbloquear/<int:id>",
-    methods=["POST"],
+    methods=[
+        "POST"
+    ]
 )
 @exige_login
-def admin_desbloquear(id):
-
-    erro_csrf = exigir_csrf()
-
-    if erro_csrf:
-
-        flash(
-            (
-                "Sessão de segurança inválida. "
-                "Recarregue a página."
-            ),
-            "erro",
-        )
-
-        return redirect(
-            url_for("admin")
-        )
+def admin_desbloquear(
+    id
+):
 
     with conectar() as con:
 
@@ -1337,104 +2396,153 @@ def admin_desbloquear(id):
             DELETE FROM bloqueios
             WHERE id = ?
             """,
-            (id,),
+            (
+                id,
+            )
         )
+
 
     flash(
         "Bloqueio removido.",
-        "ok",
+        "ok"
     )
+
 
     return redirect(
-        url_for("admin")
+        url_for(
+            "admin"
+        )
     )
 
 
 # ============================================================
-# ADMIN — CONFIGURAR HORÁRIOS
+# CONFIGURAR HORÁRIOS
 # ============================================================
+
 @app.route(
     "/admin/horarios",
-    methods=["POST"],
+    methods=[
+        "POST"
+    ]
 )
 @exige_login
 def admin_horarios():
 
-    erro_csrf = exigir_csrf()
-
-    if erro_csrf:
-
-        flash(
-            (
-                "Sessão de segurança inválida. "
-                "Recarregue a página."
-            ),
-            "erro",
-        )
-
-        return redirect(
-            url_for("admin")
-        )
-
     dias = sorted(
         {
-            int(dia)
-            for dia in request.form.getlist(
+
+            int(valor)
+
+            for valor
+            in request.form.getlist(
                 "dias"
             )
+
             if (
-                dia.isdigit()
-                and 0 <= int(dia) <= 6
+                valor.isdigit()
+                and 0 <= int(valor) <= 6
             )
+
         }
     )
 
-    horarios = normalizar_horarios(
-        re.split(
-            r"[,;\s]+",
+
+    if not dias:
+
+        flash(
+            (
+                "Escolha pelo menos "
+                "um dia de atendimento."
+            ),
+            "erro"
+        )
+
+
+        return redirect(
+            url_for(
+                "admin"
+            )
+        )
+
+
+    try:
+
+        horarios = normalizar_horarios(
             request.form.get(
                 "horarios",
-                "",
-            ),
+                ""
+            )
         )
-    )
+
+    except ValueError as erro:
+
+        flash(
+            str(
+                erro
+            ),
+            "erro"
+        )
+
+
+        return redirect(
+            url_for(
+                "admin"
+            )
+        )
+
 
     if not horarios:
 
         flash(
             (
                 "Informe pelo menos "
-                "um horário válido."
+                "um horário."
             ),
-            "erro",
+            "erro"
         )
 
+
         return redirect(
-            url_for("admin")
+            url_for(
+                "admin"
+            )
         )
+
 
     salvar_config(
         "dias_abertos",
+
         ",".join(
             str(dia)
-            for dia in dias
-        ),
+
+            for dia
+            in dias
+        )
     )
+
 
     salvar_config(
         "horarios",
+
         ",".join(
             horarios
-        ),
+        )
     )
+
 
     flash(
-        "Horários de atendimento salvos!",
-        "ok",
+        (
+            "Horários de atendimento "
+            "salvos!"
+        ),
+        "ok"
     )
 
+
     return redirect(
-        url_for("admin")
+        url_for(
+            "admin"
+        )
     )
 
 
@@ -1442,17 +2550,2574 @@ def admin_horarios():
 # INICIALIZAÇÃO
 # ============================================================
 
-# Cria o banco caso ainda não exista.
 criar_banco()
 
 
 if __name__ == "__main__":
-    # Para desenvolvimento local.
-    #
-    # O debug NÃO fica mais ativado obrigatoriamente.
-    #
-    # Se quiser ativá-lo:
-    # FLASK_DEBUG=1
+
+    app.run(
+        debug=(
+            os.environ.get(
+                "FLASK_DEBUG"
+            )
+            == "1"
+        )
+    )import hmac
+import json
+import os
+import re
+import secrets
+import sqlite3
+import time
+from datetime import date, datetime, timedelta
+from functools import wraps
+from pathlib import Path
+from zoneinfo import ZoneInfo
+
+from flask import (
+    Flask,
+    abort,
+    flash,
+    jsonify,
+    redirect,
+    render_template,
+    request,
+    session,
+    url_for,
+)
+
+
+app = Flask(__name__)
+
+
+# ============================================================
+# SEGREDOS / SESSÃO
+# ============================================================
+
+try:
+    import segredos
+
+    ADMIN_SENHA = getattr(segredos, "ADMIN_SENHA", None)
+    SECRET_KEY = getattr(segredos, "SECRET_KEY", None)
+
+except ImportError:
+    ADMIN_SENHA = None
+    SECRET_KEY = None
+
+
+ADMIN_SENHA = (
+    ADMIN_SENHA
+    or os.environ.get("ADMIN_SENHA")
+)
+
+
+SECRET_KEY = (
+    SECRET_KEY
+    or os.environ.get("SECRET_KEY")
+    or secrets.token_hex(32)
+)
+
+
+app.secret_key = SECRET_KEY
+
+
+app.config.update(
+    SESSION_COOKIE_SAMESITE="Lax",
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SECURE=(
+        os.environ.get("COOKIE_SECURE") == "1"
+    ),
+    PERMANENT_SESSION_LIFETIME=timedelta(hours=12),
+)
+
+
+# ============================================================
+# CAMINHOS / HORÁRIO
+# ============================================================
+
+PASTA = Path(__file__).parent
+
+BANCO = PASTA / "agenda.db"
+
+FUSO = ZoneInfo("America/Sao_Paulo")
+
+
+def agora():
+    return datetime.now(
+        FUSO
+    ).replace(
+        tzinfo=None
+    )
+
+
+# Segunda = 0
+# Terça = 1
+# Quarta = 2
+# Quinta = 3
+# Sexta = 4
+# Sábado = 5
+# Domingo = 6
+
+DIAS_PADRAO = [
+    1,
+    2,
+    3,
+    4,
+    5,
+]
+
+
+HORARIOS_PADRAO = [
+    "09:00",
+    "10:00",
+    "11:00",
+    "12:00",
+    "13:00",
+    "14:00",
+    "15:00",
+    "16:00",
+    "17:00",
+]
+
+
+NOMES_DIAS = [
+    "Segunda",
+    "Terça",
+    "Quarta",
+    "Quinta",
+    "Sexta",
+    "Sábado",
+    "Domingo",
+]
+
+
+ABREV_DIAS = [
+    "Seg",
+    "Ter",
+    "Qua",
+    "Qui",
+    "Sex",
+    "Sáb",
+    "Dom",
+]
+
+
+# ============================================================
+# DADOS DO STUDIO
+# ============================================================
+
+salao = {
+
+    "nome":
+        "Studio Bastos",
+
+    "slogan":
+        "Beleza e bem-estar",
+
+    "whatsapp":
+        "(11) 97219-9804",
+
+    "telefone":
+        "+55 (11) 97219-9804",
+
+    "instagram":
+        "studiobastos.53",
+
+    "funcionamento":
+        " 9h às 18h",
+
+    # Depois troque pelo endereço correto
+    "endereco": "R. Itaquaquecetuba, 144 - Grajaú, São Paulo - SP, 04840-190, Brasil",
+
+    "maps": "https://maps.app.goo.gl/FZxC1x5G9EFuv3vr8",
+
+    "pagamentos":
+        "Consulte as formas de pagamento pelo WhatsApp.",
+}
+
+
+# ============================================================
+# DIFERENCIAIS
+# ============================================================
+
+diferenciais = [
+
+    {
+        "titulo":
+            "Agendamento fácil",
+
+        "texto":
+            "Escolha os serviços, o dia e o horário em poucos passos.",
+    },
+
+    {
+        "titulo":
+            "Atendimento personalizado",
+
+        "texto":
+            "Cada combinação é pensada de acordo com o estilo da cliente.",
+    },
+
+    {
+        "titulo":
+            "Higiene e cuidado",
+
+        "texto":
+            "Organização e atenção aos detalhes durante o atendimento.",
+    },
+
+    {
+        "titulo":
+            "Acabamento de qualidade",
+
+        "texto":
+            "Cuidado em cada etapa para um resultado bonito e bem finalizado.",
+    },
+
+]
+
+
+# ============================================================
+# SERVIÇOS
+# ============================================================
+
+# valor = valor em centavos.
+# Exemplo:
+# R$ 150,00 = 15000
+#
+# por_unha = True
+# permite escolher quantidade.
+
+servicos = {
+
+    "Alongamento": [
+
+        {
+            "nome":
+                "Fibra de vidro",
+
+            "preco":
+                "R$ 150,00",
+
+            "valor":
+                15000,
+
+            "por_unha":
+                False,
+        },
+
+        {
+            "nome":
+                "Molde F1",
+
+            "preco":
+                "R$ 120,00",
+
+            "valor":
+                12000,
+
+            "por_unha":
+                False,
+        },
+
+        {
+            "nome":
+                "Banho de gel",
+
+            "preco":
+                "R$ 60,00",
+
+            "valor":
+                6000,
+
+            "por_unha":
+                False,
+        },
+
+        {
+            "nome":
+                "Blindagem",
+
+            "preco":
+                "R$ 50,00",
+
+            "valor":
+                5000,
+
+            "por_unha":
+                False,
+        },
+
+    ],
+
+
+    "Nail arts": [
+
+        {
+            "nome":
+                "Encapsulada",
+
+            "preco":
+                "R$ 7,00",
+
+            "valor":
+                700,
+
+            "descricao":
+                "Valor por unha",
+
+            "por_unha":
+                True,
+        },
+
+        {
+            "nome":
+                "Francesinha",
+
+            "preco":
+                "R$ 6,00",
+
+            "valor":
+                600,
+
+            "por_unha":
+                False,
+        },
+
+        {
+            "nome":
+                "Adesivo",
+
+            "preco":
+                "R$ 3,00",
+
+            "valor":
+                300,
+
+            "por_unha":
+                False,
+        },
+
+        {
+            "nome":
+                "Pedraria",
+
+            "preco":
+                "R$ 4,00",
+
+            "valor":
+                400,
+
+            "por_unha":
+                False,
+        },
+
+        {
+            "nome":
+                "Outros",
+
+            "preco":
+                "R$ 1,50",
+
+            "valor":
+                150,
+
+            "por_unha":
+                False,
+        },
+
+    ],
+
+
+    "Manutenção": [
+
+        {
+            "nome":
+                "Manutenção de molde F1",
+
+            "preco":
+                "R$ 80,00",
+
+            "valor":
+                8000,
+
+            "por_unha":
+                False,
+        },
+
+        {
+            "nome":
+                "Manutenção de fibra de vidro",
+
+            "preco":
+                "R$ 90,00",
+
+            "valor":
+                9000,
+
+            "por_unha":
+                False,
+        },
+
+    ],
+
+
+    "Outros": [
+
+        {
+            "nome":
+                "Remoção",
+
+            "preco":
+                "R$ 30,00",
+
+            "valor":
+                3000,
+
+            "por_unha":
+                False,
+        },
+
+        {
+            "nome":
+                "Reposição de unha",
+
+            "preco":
+                "R$ 10,00",
+
+            "valor":
+                1000,
+
+            "descricao":
+                "Valor por unha",
+
+            "por_unha":
+                True,
+        },
+
+        {
+            "nome":
+                "Troca de formato",
+
+            "preco":
+                "R$ 20,00",
+
+            "valor":
+                2000,
+
+            "por_unha":
+                False,
+        },
+
+    ],
+
+}
+
+
+SERVICOS_POR_NOME = {
+
+    item["nome"]:
+        item
+
+    for itens
+    in servicos.values()
+
+    for item
+    in itens
+
+}
+
+
+# ============================================================
+# CSRF
+# ============================================================
+
+def csrf_token():
+
+    token = session.get(
+        "_csrf_token"
+    )
+
+    if not token:
+
+        token = secrets.token_urlsafe(
+            32
+        )
+
+        session[
+            "_csrf_token"
+        ] = token
+
+    return token
+
+
+app.jinja_env.globals[
+    "csrf_token"
+] = csrf_token
+
+
+@app.before_request
+def proteger_posts():
+
+    if request.method != "POST":
+        return None
+
+
+    esperado = session.get(
+        "_csrf_token",
+        ""
+    )
+
+
+    recebido = (
+
+        request.headers.get(
+            "X-CSRF-Token",
+            ""
+        )
+
+        or request.form.get(
+            "csrf_token",
+            ""
+        )
+
+    )
+
+
+    if (
+        esperado
+        and recebido
+        and hmac.compare_digest(
+            esperado,
+            recebido
+        )
+    ):
+
+        return None
+
+
+    if request.path.startswith(
+        "/api/"
+    ):
+
+        return jsonify(
+            erro=(
+                "Sessão expirada. "
+                "Atualize a página e tente novamente."
+            )
+        ), 400
+
+
+    abort(400)
+
+
+# ============================================================
+# BANCO
+# ============================================================
+
+def conectar():
+
+    con = sqlite3.connect(
+        BANCO
+    )
+
+    con.row_factory = (
+        sqlite3.Row
+    )
+
+    return con
+
+
+def criar_banco():
+
+    with conectar() as con:
+
+        con.execute(
+            """
+            CREATE TABLE IF NOT EXISTS agendamentos (
+
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+                servico TEXT NOT NULL,
+
+                data TEXT NOT NULL,
+
+                hora TEXT NOT NULL,
+
+                nome TEXT NOT NULL,
+
+                telefone TEXT NOT NULL,
+
+                criado_em TEXT NOT NULL,
+
+                UNIQUE (data, hora)
+
+            )
+            """
+        )
+
+
+        con.execute(
+            """
+            CREATE TABLE IF NOT EXISTS bloqueios (
+
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+                data TEXT NOT NULL,
+
+                hora TEXT,
+
+                motivo TEXT NOT NULL DEFAULT ''
+
+            )
+            """
+        )
+
+
+        con.execute(
+            """
+            CREATE TABLE IF NOT EXISTS config (
+
+                chave TEXT PRIMARY KEY,
+
+                valor TEXT NOT NULL
+
+            )
+            """
+        )
+
+
+        con.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_agendamentos_data_hora
+
+            ON agendamentos (
+                data,
+                hora
+            )
+            """
+        )
+
+
+        con.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_bloqueios_data_hora
+
+            ON bloqueios (
+                data,
+                hora
+            )
+            """
+        )
+
+
+# ============================================================
+# CONFIGURAÇÃO DE HORÁRIOS
+# ============================================================
+
+def normalizar_horarios(
+    texto
+):
+
+    horarios = set()
+
+
+    for pedaco in re.split(
+        r"[,;\s]+",
+        texto or ""
+    ):
+
+        pedaco = pedaco.strip()
+
+
+        if not pedaco:
+            continue
+
+
+        resultado = re.fullmatch(
+            r"(\d{1,2})[:h](\d{2})",
+            pedaco
+        )
+
+
+        if not resultado:
+
+            raise ValueError(
+                (
+                    f"Não entendi o horário "
+                    f"“{pedaco}”. "
+                    f"Use o formato 09:00."
+                )
+            )
+
+
+        hora = int(
+            resultado.group(1)
+        )
+
+
+        minuto = int(
+            resultado.group(2)
+        )
+
+
+        if (
+            hora > 23
+            or minuto > 59
+        ):
+
+            raise ValueError(
+                (
+                    f"Não entendi o horário "
+                    f"“{pedaco}”. "
+                    f"Use o formato 09:00."
+                )
+            )
+
+
+        horarios.add(
+            f"{hora:02d}:{minuto:02d}"
+        )
+
+
+    return sorted(
+        horarios
+    )
+
+
+def ler_config():
+
+    with conectar() as con:
+
+        linhas = con.execute(
+            """
+            SELECT chave, valor
+            FROM config
+            """
+        ).fetchall()
+
+
+    cfg = {
+
+        linha["chave"]:
+            linha["valor"]
+
+        for linha
+        in linhas
+
+    }
+
+
+    try:
+
+        dias = sorted(
+            {
+                int(valor)
+
+                for valor
+                in cfg.get(
+                    "dias_abertos",
+                    ""
+                ).split(",")
+
+                if (
+                    valor != ""
+                    and 0 <= int(valor) <= 6
+                )
+            }
+        )
+
+    except ValueError:
+
+        dias = list(
+            DIAS_PADRAO
+        )
+
+
+    if (
+        not dias
+        and "dias_abertos"
+        not in cfg
+    ):
+
+        dias = list(
+            DIAS_PADRAO
+        )
+
+
+    try:
+
+        horarios = normalizar_horarios(
+            cfg.get(
+                "horarios",
+                ""
+            )
+        )
+
+    except ValueError:
+
+        horarios = []
+
+
+    if not horarios:
+
+        horarios = list(
+            HORARIOS_PADRAO
+        )
+
+
+    return (
+        dias,
+        horarios
+    )
+
+
+def salvar_config(
+    chave,
+    valor
+):
+
+    with conectar() as con:
+
+        con.execute(
+            """
+            INSERT OR REPLACE INTO config (
+                chave,
+                valor
+            )
+            VALUES (?, ?)
+            """,
+            (
+                chave,
+                valor
+            )
+        )
+
+
+def mes_permitido(
+    ano,
+    mes
+):
+
+    try:
+
+        alvo = date(
+            ano,
+            mes,
+            1
+        )
+
+    except ValueError:
+
+        return False
+
+
+    atual = agora().date().replace(
+        day=1
+    )
+
+
+    diferenca = (
+
+        (
+            alvo.year
+            - atual.year
+        )
+        * 12
+
+        + alvo.month
+        - atual.month
+
+    )
+
+
+    return (
+        0
+        <= diferenca
+        <= 11
+    )
+
+
+def horarios_do_dia(
+    dia
+):
+
+    momento = agora()
+
+
+    dias, horarios = (
+        ler_config()
+    )
+
+
+    if dia.weekday() not in dias:
+
+        return []
+
+
+    if dia < momento.date():
+
+        return []
+
+
+    iso = dia.isoformat()
+
+
+    with conectar() as con:
+
+        ocupados = {
+
+            linha["hora"]
+
+            for linha
+            in con.execute(
+                """
+                SELECT hora
+                FROM agendamentos
+                WHERE data = ?
+                """,
+                (
+                    iso,
+                )
+            )
+
+        }
+
+
+        bloqueios = con.execute(
+            """
+            SELECT hora
+            FROM bloqueios
+            WHERE data = ?
+            """,
+            (
+                iso,
+            )
+        ).fetchall()
+
+
+    if any(
+        bloqueio["hora"] is None
+
+        for bloqueio
+        in bloqueios
+    ):
+
+        return []
+
+
+    bloqueados = {
+
+        bloqueio["hora"]
+
+        for bloqueio
+        in bloqueios
+
+        if bloqueio["hora"]
+
+    }
+
+
+    resultado = []
+
+
+    for hora in horarios:
+
+        inicio = datetime.combine(
+            dia,
+
+            datetime.strptime(
+                hora,
+                "%H:%M"
+            ).time()
+        )
+
+
+        livre = (
+
+            hora not in ocupados
+
+            and hora not in bloqueados
+
+            and inicio > momento
+
+        )
+
+
+        resultado.append(
+            {
+                "hora":
+                    hora,
+
+                "livre":
+                    livre,
+            }
+        )
+
+
+    return resultado
+
+
+# ============================================================
+# SERVIÇOS MÚLTIPLOS
+# ============================================================
+
+def formatar_moeda_centavos(
+    valor
+):
+
+    reais = (
+        valor / 100
+    )
+
+
+    texto = f"{reais:,.2f}"
+
+
+    texto = (
+        texto
+        .replace(
+            ",",
+            "X"
+        )
+        .replace(
+            ".",
+            ","
+        )
+        .replace(
+            "X",
+            "."
+        )
+    )
+
+
+    return (
+        f"R$ {texto}"
+    )
+
+
+def validar_servicos_recebidos(
+    dados
+):
+
+    recebidos = dados.get(
+        "servicos"
+    )
+
+
+    if not isinstance(
+        recebidos,
+        list
+    ):
+
+        raise ValueError(
+            "Escolha pelo menos um serviço."
+        )
+
+
+    if not recebidos:
+
+        raise ValueError(
+            "Escolha pelo menos um serviço."
+        )
+
+
+    if len(recebidos) > 20:
+
+        raise ValueError(
+            "Foram selecionados serviços demais."
+        )
+
+
+    nomes_vistos = set()
+
+    itens = []
+
+    total = 0
+
+
+    for recebido in recebidos:
+
+        if not isinstance(
+            recebido,
+            dict
+        ):
+
+            raise ValueError(
+                "Há um serviço inválido na seleção."
+            )
+
+
+        nome = str(
+            recebido.get(
+                "nome",
+                ""
+            )
+        ).strip()
+
+
+        if (
+            nome not in SERVICOS_POR_NOME
+            or nome in nomes_vistos
+        ):
+
+            raise ValueError(
+                "Há um serviço inválido na seleção."
+            )
+
+
+        nomes_vistos.add(
+            nome
+        )
+
+
+        cadastro = (
+            SERVICOS_POR_NOME[
+                nome
+            ]
+        )
+
+
+        if cadastro.get(
+            "por_unha"
+        ):
+
+            try:
+
+                quantidade = int(
+                    recebido.get(
+                        "quantidade",
+                        1
+                    )
+                )
+
+            except (
+                TypeError,
+                ValueError
+            ):
+
+                quantidade = 1
+
+
+            if (
+                quantidade < 1
+                or quantidade > 10
+            ):
+
+                raise ValueError(
+                    (
+                        "Informe de 1 a 10 para "
+                        f"{nome}."
+                    )
+                )
+
+        else:
+
+            quantidade = 1
+
+
+        subtotal = (
+            cadastro["valor"]
+            * quantidade
+        )
+
+
+        total += subtotal
+
+
+        itens.append(
+            {
+
+                "nome":
+                    nome,
+
+                "quantidade":
+                    quantidade,
+
+                "por_unha":
+                    bool(
+                        cadastro.get(
+                            "por_unha"
+                        )
+                    ),
+
+                "valor_unitario":
+                    cadastro["valor"],
+
+                "subtotal":
+                    subtotal,
+
+            }
+        )
+
+
+    return (
+        itens,
+        total
+    )
+
+
+def serializar_servicos(
+    itens,
+    total
+):
+
+    dados = {
+
+        "versao":
+            1,
+
+        "itens":
+            itens,
+
+        "total":
+            total,
+
+    }
+
+
+    return json.dumps(
+        dados,
+        ensure_ascii=False,
+        separators=(
+            ",",
+            ":"
+        )
+    )
+
+
+def ler_servicos_salvos(
+    valor
+):
+
+    """
+    Formato novo:
+    JSON com vários serviços.
+
+    Formato antigo:
+    texto simples com um serviço.
+
+    Assim os agendamentos antigos
+    continuam funcionando.
+    """
+
+    try:
+
+        dados = json.loads(
+            valor
+        )
+
+
+        if (
+            isinstance(
+                dados,
+                dict
+            )
+            and isinstance(
+                dados.get(
+                    "itens"
+                ),
+                list
+            )
+        ):
+
+            itens = []
+
+
+            for item in dados[
+                "itens"
+            ]:
+
+                quantidade = int(
+                    item.get(
+                        "quantidade",
+                        1
+                    )
+                )
+
+
+                subtotal = int(
+                    item.get(
+                        "subtotal",
+                        0
+                    )
+                )
+
+
+                itens.append(
+                    {
+
+                        "nome":
+                            str(
+                                item.get(
+                                    "nome",
+                                    "Serviço"
+                                )
+                            ),
+
+                        "quantidade":
+                            quantidade,
+
+                        "subtotal":
+                            (
+                                formatar_moeda_centavos(
+                                    subtotal
+                                )
+
+                                if subtotal
+
+                                else None
+                            ),
+
+                    }
+                )
+
+
+            total = int(
+                dados.get(
+                    "total",
+                    0
+                )
+            )
+
+
+            return {
+
+                "itens":
+                    itens,
+
+                "total":
+                    (
+                        formatar_moeda_centavos(
+                            total
+                        )
+
+                        if total
+
+                        else None
+                    ),
+
+            }
+
+
+    except (
+        json.JSONDecodeError,
+        TypeError,
+        ValueError
+    ):
+
+        pass
+
+
+    return {
+
+        "itens": [
+            {
+
+                "nome":
+                    valor,
+
+                "quantidade":
+                    1,
+
+                "subtotal":
+                    None,
+
+            }
+        ],
+
+        "total":
+            None,
+
+    }
+
+
+# ============================================================
+# PÁGINA PÚBLICA
+# ============================================================
+
+@app.route("/")
+def home():
+
+    return render_template(
+        "index.html",
+        salao=salao,
+        servicos=servicos,
+        diferenciais=diferenciais,
+    )
+
+
+# ============================================================
+# API - MÊS
+# ============================================================
+
+@app.route(
+    "/api/mes"
+)
+def api_mes():
+
+    try:
+
+        ano = int(
+            request.args.get(
+                "ano",
+                ""
+            )
+        )
+
+
+        mes = int(
+            request.args.get(
+                "mes",
+                ""
+            )
+        )
+
+    except ValueError:
+
+        return jsonify(
+            {}
+        ), 400
+
+
+    if not mes_permitido(
+        ano,
+        mes
+    ):
+
+        return jsonify(
+            {}
+        ), 400
+
+
+    dia = date(
+        ano,
+        mes,
+        1
+    )
+
+
+    resultado = {}
+
+
+    while dia.month == mes:
+
+        horarios = horarios_do_dia(
+            dia
+        )
+
+
+        if horarios:
+
+            resultado[
+                dia.isoformat()
+            ] = sum(
+
+                1
+
+                for horario
+                in horarios
+
+                if horario[
+                    "livre"
+                ]
+
+            )
+
+
+        dia += timedelta(
+            days=1
+        )
+
+
+    return jsonify(
+        resultado
+    )
+
+
+# ============================================================
+# API - HORÁRIOS
+# ============================================================
+
+@app.route(
+    "/api/horarios"
+)
+def api_horarios():
+
+    try:
+
+        dia = date.fromisoformat(
+            request.args.get(
+                "data",
+                ""
+            )
+        )
+
+    except ValueError:
+
+        return jsonify(
+            []
+        ), 400
+
+
+    mes_do_dia = (
+        dia.replace(
+            day=1
+        )
+    )
+
+
+    if not mes_permitido(
+        mes_do_dia.year,
+        mes_do_dia.month
+    ):
+
+        return jsonify(
+            []
+        ), 400
+
+
+    return jsonify(
+        horarios_do_dia(
+            dia
+        )
+    )
+
+
+# ============================================================
+# API - AGENDAR
+# ============================================================
+
+@app.route(
+    "/api/agendar",
+    methods=[
+        "POST"
+    ]
+)
+def api_agendar():
+
+    dados = (
+        request.get_json(
+            silent=True
+        )
+        or {}
+    )
+
+
+    nome = str(
+        dados.get(
+            "nome",
+            ""
+        )
+    ).strip()
+
+
+    telefone = "".join(
+
+        caractere
+
+        for caractere
+        in str(
+            dados.get(
+                "telefone",
+                ""
+            )
+        )
+
+        if caractere.isdigit()
+
+    )
+
+
+    hora = str(
+        dados.get(
+            "hora",
+            ""
+        )
+    ).strip()
+
+
+    try:
+
+        dia = date.fromisoformat(
+            str(
+                dados.get(
+                    "data",
+                    ""
+                )
+            )
+        )
+
+    except ValueError:
+
+        return jsonify(
+            erro="Data inválida."
+        ), 400
+
+
+    try:
+
+        itens, total = (
+            validar_servicos_recebidos(
+                dados
+            )
+        )
+
+    except ValueError as erro:
+
+        return jsonify(
+            erro=str(
+                erro
+            )
+        ), 400
+
+
+    if not nome:
+
+        return jsonify(
+            erro="Informe o seu nome."
+        ), 400
+
+
+    if len(nome) > 80:
+
+        return jsonify(
+            erro="O nome está muito longo."
+        ), 400
+
+
+    if len(telefone) not in (
+        10,
+        11
+    ):
+
+        return jsonify(
+            erro="Informe um telefone com DDD."
+        ), 400
+
+
+    livres = {
+
+        item["hora"]
+
+        for item
+        in horarios_do_dia(
+            dia
+        )
+
+        if item[
+            "livre"
+        ]
+
+    }
+
+
+    if hora not in livres:
+
+        return jsonify(
+            erro=(
+                "Esse horário não está mais "
+                "disponível. Escolha outro."
+            )
+        ), 409
+
+
+    servicos_salvos = (
+        serializar_servicos(
+            itens,
+            total
+        )
+    )
+
+
+    try:
+
+        with conectar() as con:
+
+            con.execute(
+                """
+                INSERT INTO agendamentos (
+
+                    servico,
+                    data,
+                    hora,
+                    nome,
+                    telefone,
+                    criado_em
+
+                )
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+
+                (
+                    servicos_salvos,
+                    dia.isoformat(),
+                    hora,
+                    nome,
+                    telefone,
+                    agora().isoformat(),
+                )
+            )
+
+
+    except sqlite3.IntegrityError:
+
+        return jsonify(
+            erro=(
+                "Esse horário acabou de ser "
+                "reservado. Escolha outro."
+            )
+        ), 409
+
+
+    return jsonify(
+
+        ok=True,
+
+        total=formatar_moeda_centavos(
+            total
+        )
+
+    )
+
+
+# ============================================================
+# LOGIN ADMIN
+# ============================================================
+
+def exige_login(
+    funcao
+):
+
+    @wraps(
+        funcao
+    )
+    def interna(
+        *args,
+        **kwargs
+    ):
+
+        if (
+            not ADMIN_SENHA
+            or not session.get(
+                "admin"
+            )
+        ):
+
+            return redirect(
+                url_for(
+                    "admin_login"
+                )
+            )
+
+
+        return funcao(
+            *args,
+            **kwargs
+        )
+
+
+    return interna
+
+
+def formatar_telefone(
+    digitos
+):
+
+    if len(digitos) == 11:
+
+        return (
+            f"({digitos[:2]}) "
+            f"{digitos[2:7]}-"
+            f"{digitos[7:]}"
+        )
+
+
+    if len(digitos) == 10:
+
+        return (
+            f"({digitos[:2]}) "
+            f"{digitos[2:6]}-"
+            f"{digitos[6:]}"
+        )
+
+
+    return digitos
+
+
+def rotulo_data(
+    iso
+):
+
+    dia = date.fromisoformat(
+        iso
+    )
+
+
+    return (
+        f"{ABREV_DIAS[dia.weekday()]}, "
+        f"{dia.strftime('%d/%m/%Y')}"
+    )
+
+
+@app.route(
+    "/admin/login",
+    methods=[
+        "GET",
+        "POST"
+    ]
+)
+def admin_login():
+
+    if not ADMIN_SENHA:
+
+        return render_template(
+            "login.html",
+            salao=salao,
+            desativado=True,
+            erro=None,
+        )
+
+
+    erro = None
+
+
+    if request.method == "POST":
+
+        senha = request.form.get(
+            "senha",
+            ""
+        )
+
+
+        if hmac.compare_digest(
+            senha.encode(),
+            ADMIN_SENHA.encode()
+        ):
+
+            session.clear()
+
+
+            session[
+                "admin"
+            ] = True
+
+
+            session.permanent = True
+
+
+            return redirect(
+                url_for(
+                    "admin"
+                )
+            )
+
+
+        time.sleep(
+            1
+        )
+
+
+        erro = (
+            "Senha incorreta."
+        )
+
+
+    return render_template(
+        "login.html",
+        salao=salao,
+        desativado=False,
+        erro=erro,
+    )
+
+
+@app.route(
+    "/admin/sair",
+    methods=[
+        "POST"
+    ]
+)
+def admin_sair():
+
+    session.clear()
+
+
+    return redirect(
+        url_for(
+            "admin_login"
+        )
+    )
+
+
+# ============================================================
+# PAINEL ADMIN
+# ============================================================
+
+@app.route(
+    "/admin"
+)
+@exige_login
+def admin():
+
+    hoje = (
+        agora()
+        .date()
+        .isoformat()
+    )
+
+
+    dias_abertos, horarios = (
+        ler_config()
+    )
+
+
+    with conectar() as con:
+
+        marcacoes = con.execute(
+            """
+            SELECT *
+            FROM agendamentos
+            WHERE data >= ?
+            ORDER BY data, hora
+            """,
+            (
+                hoje,
+            )
+        ).fetchall()
+
+
+        bloqueios = con.execute(
+            """
+            SELECT *
+            FROM bloqueios
+            WHERE data >= ?
+            ORDER BY data, hora
+            """,
+            (
+                hoje,
+            )
+        ).fetchall()
+
+
+    grupos = []
+
+
+    for marcacao in marcacoes:
+
+        if (
+            not grupos
+            or grupos[-1][
+                "data"
+            ] != marcacao[
+                "data"
+            ]
+        ):
+
+            grupos.append(
+                {
+
+                    "data":
+                        marcacao[
+                            "data"
+                        ],
+
+                    "rotulo":
+                        rotulo_data(
+                            marcacao[
+                                "data"
+                            ]
+                        ),
+
+                    "itens":
+                        [],
+
+                }
+            )
+
+
+        detalhes = (
+            ler_servicos_salvos(
+                marcacao[
+                    "servico"
+                ]
+            )
+        )
+
+
+        grupos[-1][
+            "itens"
+        ].append(
+            {
+
+                "id":
+                    marcacao[
+                        "id"
+                    ],
+
+                "hora":
+                    marcacao[
+                        "hora"
+                    ],
+
+                "nome":
+                    marcacao[
+                        "nome"
+                    ],
+
+                "telefone":
+                    marcacao[
+                        "telefone"
+                    ],
+
+                "telefone_fmt":
+                    formatar_telefone(
+                        marcacao[
+                            "telefone"
+                        ]
+                    ),
+
+                "servicos":
+                    detalhes[
+                        "itens"
+                    ],
+
+                "total_servicos":
+                    detalhes[
+                        "total"
+                    ],
+
+            }
+        )
+
+
+    lista_bloqueios = [
+
+        {
+
+            "id":
+                bloqueio[
+                    "id"
+                ],
+
+            "rotulo":
+                rotulo_data(
+                    bloqueio[
+                        "data"
+                    ]
+                ),
+
+            "hora":
+                (
+                    bloqueio[
+                        "hora"
+                    ]
+                    or "Dia inteiro"
+                ),
+
+            "motivo":
+                bloqueio[
+                    "motivo"
+                ],
+
+        }
+
+        for bloqueio
+        in bloqueios
+
+    ]
+
+
+    return render_template(
+        "admin.html",
+        salao=salao,
+        grupos=grupos,
+        total=len(
+            marcacoes
+        ),
+        bloqueios=lista_bloqueios,
+        hoje=hoje,
+        horarios=horarios,
+        horarios_texto=", ".join(
+            horarios
+        ),
+        dias_abertos=dias_abertos,
+        nomes_dias=list(
+            enumerate(
+                NOMES_DIAS
+            )
+        ),
+    )
+
+
+# ============================================================
+# CANCELAR
+# ============================================================
+
+@app.route(
+    "/admin/cancelar/<int:id>",
+    methods=[
+        "POST"
+    ]
+)
+@exige_login
+def admin_cancelar(
+    id
+):
+
+    with conectar() as con:
+
+        con.execute(
+            """
+            DELETE FROM agendamentos
+            WHERE id = ?
+            """,
+            (
+                id,
+            )
+        )
+
+
+    flash(
+        (
+            "Marcação cancelada. "
+            "O horário voltou a ficar livre."
+        ),
+        "ok"
+    )
+
+
+    return redirect(
+        url_for(
+            "admin"
+        )
+    )
+
+
+# ============================================================
+# BLOQUEAR
+# ============================================================
+
+@app.route(
+    "/admin/bloquear",
+    methods=[
+        "POST"
+    ]
+)
+@exige_login
+def admin_bloquear():
+
+    _, horarios = (
+        ler_config()
+    )
+
+
+    motivo = (
+        request.form.get(
+            "motivo",
+            ""
+        )
+        .strip()[:80]
+    )
+
+
+    hora = (
+        request.form.get(
+            "hora",
+            ""
+        )
+        .strip()
+    )
+
+
+    try:
+
+        dia = date.fromisoformat(
+            request.form.get(
+                "data",
+                ""
+            )
+        )
+
+    except ValueError:
+
+        flash(
+            (
+                "Escolha uma data válida "
+                "para bloquear."
+            ),
+            "erro"
+        )
+
+
+        return redirect(
+            url_for(
+                "admin"
+            )
+        )
+
+
+    if dia < agora().date():
+
+        flash(
+            (
+                "Não dá para bloquear "
+                "um dia que já passou."
+            ),
+            "erro"
+        )
+
+
+        return redirect(
+            url_for(
+                "admin"
+            )
+        )
+
+
+    if (
+        hora
+        and hora not in horarios
+    ):
+
+        flash(
+            (
+                "Esse horário não existe "
+                "na sua lista de horários."
+            ),
+            "erro"
+        )
+
+
+        return redirect(
+            url_for(
+                "admin"
+            )
+        )
+
+
+    iso = (
+        dia.isoformat()
+    )
+
+
+    with conectar() as con:
+
+        if hora:
+
+            ja_existe = con.execute(
+                """
+                SELECT 1
+
+                FROM bloqueios
+
+                WHERE data = ?
+
+                AND (
+                    hora = ?
+                    OR hora IS NULL
+                )
+                """,
+                (
+                    iso,
+                    hora
+                )
+            ).fetchone()
+
+
+            conflitos = con.execute(
+                """
+                SELECT COUNT(*)
+
+                FROM agendamentos
+
+                WHERE data = ?
+
+                AND hora = ?
+                """,
+                (
+                    iso,
+                    hora
+                )
+            ).fetchone()[0]
+
+
+        else:
+
+            ja_existe = con.execute(
+                """
+                SELECT 1
+
+                FROM bloqueios
+
+                WHERE data = ?
+
+                AND hora IS NULL
+                """,
+                (
+                    iso,
+                )
+            ).fetchone()
+
+
+            conflitos = con.execute(
+                """
+                SELECT COUNT(*)
+
+                FROM agendamentos
+
+                WHERE data = ?
+                """,
+                (
+                    iso,
+                )
+            ).fetchone()[0]
+
+
+        if ja_existe:
+
+            flash(
+                (
+                    "Esse dia ou horário "
+                    "já está bloqueado."
+                ),
+                "erro"
+            )
+
+
+            return redirect(
+                url_for(
+                    "admin"
+                )
+            )
+
+
+        con.execute(
+            """
+            INSERT INTO bloqueios (
+                data,
+                hora,
+                motivo
+            )
+
+            VALUES (?, ?, ?)
+            """,
+            (
+                iso,
+                hora or None,
+                motivo
+            )
+        )
+
+
+    if conflitos:
+
+        flash(
+            (
+                f"Bloqueado! Atenção: já existia(m) "
+                f"{conflitos} marcação(ões) nesse período. "
+                "Elas continuam na agenda; cancele se precisar."
+            ),
+            "erro"
+        )
+
+    else:
+
+        flash(
+            (
+                "Bloqueado! As clientes não conseguem "
+                "mais marcar nesse período."
+            ),
+            "ok"
+        )
+
+
+    return redirect(
+        url_for(
+            "admin"
+        )
+    )
+
+
+# ============================================================
+# DESBLOQUEAR
+# ============================================================
+
+@app.route(
+    "/admin/desbloquear/<int:id>",
+    methods=[
+        "POST"
+    ]
+)
+@exige_login
+def admin_desbloquear(
+    id
+):
+
+    with conectar() as con:
+
+        con.execute(
+            """
+            DELETE FROM bloqueios
+            WHERE id = ?
+            """,
+            (
+                id,
+            )
+        )
+
+
+    flash(
+        "Bloqueio removido.",
+        "ok"
+    )
+
+
+    return redirect(
+        url_for(
+            "admin"
+        )
+    )
+
+
+# ============================================================
+# CONFIGURAR HORÁRIOS
+# ============================================================
+
+@app.route(
+    "/admin/horarios",
+    methods=[
+        "POST"
+    ]
+)
+@exige_login
+def admin_horarios():
+
+    dias = sorted(
+        {
+
+            int(valor)
+
+            for valor
+            in request.form.getlist(
+                "dias"
+            )
+
+            if (
+                valor.isdigit()
+                and 0 <= int(valor) <= 6
+            )
+
+        }
+    )
+
+
+    if not dias:
+
+        flash(
+            (
+                "Escolha pelo menos "
+                "um dia de atendimento."
+            ),
+            "erro"
+        )
+
+
+        return redirect(
+            url_for(
+                "admin"
+            )
+        )
+
+
+    try:
+
+        horarios = normalizar_horarios(
+            request.form.get(
+                "horarios",
+                ""
+            )
+        )
+
+    except ValueError as erro:
+
+        flash(
+            str(
+                erro
+            ),
+            "erro"
+        )
+
+
+        return redirect(
+            url_for(
+                "admin"
+            )
+        )
+
+
+    if not horarios:
+
+        flash(
+            (
+                "Informe pelo menos "
+                "um horário."
+            ),
+            "erro"
+        )
+
+
+        return redirect(
+            url_for(
+                "admin"
+            )
+        )
+
+
+    salvar_config(
+        "dias_abertos",
+
+        ",".join(
+            str(dia)
+
+            for dia
+            in dias
+        )
+    )
+
+
+    salvar_config(
+        "horarios",
+
+        ",".join(
+            horarios
+        )
+    )
+
+
+    flash(
+        (
+            "Horários de atendimento "
+            "salvos!"
+        ),
+        "ok"
+    )
+
+
+    return redirect(
+        url_for(
+            "admin"
+        )
+    )
+
+
+# ============================================================
+# INICIALIZAÇÃO
+# ============================================================
+
+criar_banco()
+
+
+if __name__ == "__main__":
 
     app.run(
         debug=(
