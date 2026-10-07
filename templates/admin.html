@@ -1,6 +1,9 @@
 <!DOCTYPE html>
+
 <html lang="pt-BR">
+
 <head>
+
     <meta charset="UTF-8">
 
     <meta
@@ -9,17 +12,12 @@
     >
 
     <meta
-        name="csrf-token"
-        content="{{ csrf_token() }}"
-    >
-
-    <meta
         name="robots"
         content="noindex,nofollow"
     >
 
     <title>
-        Agenda – {{ salao.nome }}
+        Agenda · {{ salao.nome }}
     </title>
 
     <link
@@ -42,22 +40,23 @@
         rel="stylesheet"
         href="{{ url_for('static', filename='style.css') }}"
     >
+
 </head>
+
 
 <body class="pagina-admin">
 
 
-    <!-- =====================================================
-         CABEÇALHO
-    ====================================================== -->
     <header class="admin-header">
 
         <div class="wrap admin-header-inner">
+
 
             <a
                 class="logo"
                 href="{{ url_for('home') }}"
             >
+
                 <span>
                     {{ salao.nome }}
                 </span>
@@ -65,14 +64,18 @@
                 <small>
                     Área administrativa
                 </small>
+
             </a>
 
 
             <div class="admin-actions">
 
+
                 <a
                     href="{{ url_for('home') }}"
+
                     target="_blank"
+
                     rel="noopener noreferrer"
                 >
                     Ver site
@@ -86,9 +89,12 @@
 
                     <input
                         type="hidden"
+
                         name="csrf_token"
+
                         value="{{ csrf_token() }}"
                     >
+
 
                     <button
                         type="submit"
@@ -99,27 +105,31 @@
 
                 </form>
 
+
             </div>
+
 
         </div>
 
     </header>
 
 
-    <!-- =====================================================
-         PAINEL
-    ====================================================== -->
     <main class="admin-main wrap">
 
 
-        <!-- Mensagens -->
+        <!-- MENSAGENS -->
+
         {% with mensagens = get_flashed_messages(with_categories=true) %}
+
 
             {% if mensagens %}
 
+
                 <div class="flash-list">
 
+
                     {% for categoria, mensagem in mensagens %}
+
 
                         <div
                             class="alerta {{ categoria }}"
@@ -128,11 +138,15 @@
                             {{ mensagem }}
                         </div>
 
+
                     {% endfor %}
+
 
                 </div>
 
+
             {% endif %}
+
 
         {% endwith %}
 
@@ -140,9 +154,12 @@
         <!-- =================================================
              MARCAÇÕES
         ================================================== -->
+
         <section class="admin-card">
 
+
             <div class="admin-card-heading">
+
 
                 <div>
 
@@ -161,16 +178,21 @@
                     {{ total }}
                 </strong>
 
+
             </div>
 
 
             {% if grupos %}
 
+
                 <div class="marcacoes">
+
 
                     {% for grupo in grupos %}
 
+
                         <div class="dia-agenda">
+
 
                             <h2>
                                 {{ grupo.rotulo }}
@@ -179,45 +201,132 @@
 
                             {% for item in grupo.itens %}
 
+
                                 <article class="marcacao">
 
+
                                     <div class="marcacao-hora">
+
                                         {{ item.hora }}
+
                                     </div>
 
 
                                     <div class="marcacao-info">
 
-                                        <strong>
+
+                                        <strong class="cliente-nome">
+
                                             {{ item.nome }}
+
                                         </strong>
 
-                                        <span>
-                                            {{ item.servico }}
-                                        </span>
+
+                                        <div class="marcacao-servicos">
+
+
+                                            {% for servico in item.servicos %}
+
+
+                                                <div class="marcacao-servico-item">
+
+
+                                                    <span>
+
+                                                        {{ servico.nome }}
+
+
+                                                        {% if servico.quantidade > 1 %}
+
+                                                            × {{ servico.quantidade }}
+
+                                                        {% endif %}
+
+
+                                                    </span>
+
+
+                                                    {% if servico.subtotal %}
+
+
+                                                        <small>
+
+                                                            {{ servico.subtotal }}
+
+                                                        </small>
+
+
+                                                    {% endif %}
+
+
+                                                </div>
+
+
+                                            {% endfor %}
+
+
+                                        </div>
+
+
+                                        {% if item.total_servicos %}
+
+
+                                            <div class="marcacao-total">
+
+
+                                                <span>
+                                                    Valor estimado
+                                                </span>
+
+
+                                                <strong>
+
+                                                    {{ item.total_servicos }}
+
+                                                </strong>
+
+
+                                            </div>
+
+
+                                        {% endif %}
+
 
                                         <a
+                                            class="telefone-cliente"
+
                                             href="https://wa.me/55{{ item.telefone }}"
+
                                             target="_blank"
+
                                             rel="noopener noreferrer"
                                         >
+
                                             {{ item.telefone_fmt }}
+
                                         </a>
+
 
                                     </div>
 
 
                                     <form
                                         method="post"
+
                                         action="{{ url_for('admin_cancelar', id=item.id) }}"
+
                                         onsubmit="return confirm('Cancelar esta marcação?');"
                                     >
 
+
                                         <input
                                             type="hidden"
+
                                             name="csrf_token"
+
                                             value="{{ csrf_token() }}"
                                         >
+
 
                                         <button
                                             type="submit"
@@ -226,25 +335,37 @@
                                             Cancelar
                                         </button>
 
+
                                     </form>
+
 
                                 </article>
 
+
                             {% endfor %}
+
 
                         </div>
 
+
                     {% endfor %}
+
 
                 </div>
 
+
             {% else %}
 
+
                 <p class="vazio">
+
                     Nenhuma marcação futura.
+
                 </p>
 
+
             {% endif %}
+
 
         </section>
 
@@ -252,9 +373,12 @@
         <!-- =================================================
              BLOQUEAR HORÁRIOS
         ================================================== -->
+
         <section class="admin-card">
 
+
             <div class="admin-card-heading">
+
 
                 <div>
 
@@ -268,49 +392,65 @@
 
                 </div>
 
+
             </div>
 
 
             <form
                 class="admin-form"
+
                 method="post"
+
                 action="{{ url_for('admin_bloquear') }}"
             >
 
+
                 <input
                     type="hidden"
+
                     name="csrf_token"
+
                     value="{{ csrf_token() }}"
                 >
 
 
                 <div>
 
+
                     <label for="data-bloqueio">
                         Data
                     </label>
 
+
                     <input
                         id="data-bloqueio"
+
                         name="data"
+
                         type="date"
+
                         min="{{ hoje }}"
+
                         required
                     >
+
 
                 </div>
 
 
                 <div>
 
+
                     <label for="hora-bloqueio">
                         Horário
                     </label>
+
 
                     <select
                         id="hora-bloqueio"
                         name="hora"
                     >
+
 
                         <option value="">
                             Dia inteiro
@@ -319,29 +459,39 @@
 
                         {% for hora in horarios %}
 
+
                             <option value="{{ hora }}">
                                 {{ hora }}
                             </option>
 
+
                         {% endfor %}
 
+
                     </select>
+
 
                 </div>
 
 
                 <div class="campo-largo">
 
+
                     <label for="motivo">
                         Motivo (opcional)
                     </label>
 
+
                     <input
                         id="motivo"
+
                         name="motivo"
+
                         maxlength="80"
+
                         placeholder="Ex.: compromisso pessoal"
                     >
+
 
                 </div>
 
@@ -353,12 +503,15 @@
                     Bloquear
                 </button>
 
+
             </form>
 
 
             {% if bloqueios %}
 
+
                 <div class="lista-bloqueios">
+
 
                     <h3>
                         Bloqueios ativos
@@ -367,38 +520,55 @@
 
                     {% for bloqueio in bloqueios %}
 
+
                         <article class="bloqueio">
+
 
                             <div>
 
+
                                 <strong>
+
                                     {{ bloqueio.rotulo }}
+
                                     ·
+
                                     {{ bloqueio.hora }}
+
                                 </strong>
 
 
                                 {% if bloqueio.motivo %}
 
+
                                     <span>
+
                                         {{ bloqueio.motivo }}
+
                                     </span>
 
+
                                 {% endif %}
+
 
                             </div>
 
 
                             <form
                                 method="post"
+
                                 action="{{ url_for('admin_desbloquear', id=bloqueio.id) }}"
                             >
 
+
                                 <input
                                     type="hidden"
+
                                     name="csrf_token"
+
                                     value="{{ csrf_token() }}"
                                 >
+
 
                                 <button
                                     type="submit"
@@ -407,25 +577,34 @@
                                     Remover
                                 </button>
 
+
                             </form>
+
 
                         </article>
 
+
                     {% endfor %}
+
 
                 </div>
 
+
             {% endif %}
+
 
         </section>
 
 
         <!-- =================================================
-             CONFIGURAÇÃO DOS HORÁRIOS
+             CONFIGURAÇÃO
         ================================================== -->
+
         <section class="admin-card">
 
+
             <div class="admin-card-heading">
+
 
                 <div>
 
@@ -439,23 +618,30 @@
 
                 </div>
 
+
             </div>
 
 
             <form
                 class="admin-form"
+
                 method="post"
+
                 action="{{ url_for('admin_horarios') }}"
             >
 
+
                 <input
                     type="hidden"
+
                     name="csrf_token"
+
                     value="{{ csrf_token() }}"
                 >
 
 
                 <fieldset>
+
 
                     <legend>
                         Dias de atendimento
@@ -464,49 +650,71 @@
 
                     <div class="chips">
 
+
                         {% for numero, nome in nomes_dias %}
+
 
                             <label class="chip">
 
+
                                 <input
                                     type="checkbox"
+
                                     name="dias"
+
                                     value="{{ numero }}"
+
                                     {% if numero in dias_abertos %}
                                         checked
                                     {% endif %}
                                 >
 
+
                                 <span>
                                     {{ nome }}
                                 </span>
 
+
                             </label>
+
 
                         {% endfor %}
 
+
                     </div>
+
 
                 </fieldset>
 
 
                 <div class="campo-largo">
 
+
                     <label for="horarios">
                         Horários
                     </label>
 
+
                     <textarea
                         id="horarios"
+
                         name="horarios"
+
                         rows="3"
+
                         placeholder="09:00, 10:00, 11:00"
                     >{{ horarios_texto }}</textarea>
 
+
                     <small>
-                        Separe por vírgula, espaço ou ponto e vírgula.
+
+                        Separe por vírgula,
+                        espaço ou ponto e vírgula.
+
                         Ex.: 09:00, 10:00, 11:00.
+
                     </small>
+
 
                 </div>
 
@@ -518,11 +726,16 @@
                     Salvar horários
                 </button>
 
+
             </form>
+
 
         </section>
 
+
     </main>
 
+
 </body>
+
 </html>
