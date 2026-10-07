@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+
+segredos.py
+*.db
+
+.venv/
+venv/
+.env
+
+app_backup.py
+templates_backup/
+static_backup/

@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <meta
+        name="csrf-token"
+        content="{{ csrf_token() }}"
+    >
+
+    <meta
+        name="description"
+        content="Agende seu horário no {{ salao.nome }}."
+    >
+
+    <title>
+        {{ salao.nome }} – Agende seu horário
+    </title>
+
+    <link
+        rel="preconnect"
+        href="https://fonts.googleapis.com"
+    >
+
+    <link
+        rel="preconnect"
+        href="https://fonts.gstatic.com"
+        crossorigin
+    >
+
+    <link
+        href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600&family=Playfair+Display:wght@500;600&display=swap"
+        rel="stylesheet"
+    >
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='style.css') }}"
+    >
+</head>
+
+<body>
+
+    <!-- =====================================================
+         BARRA SUPERIOR
+    ====================================================== -->
+    <div class="topbar">
+        <div class="wrap topbar-inner">
+
+            <span>
+                {{ salao.funcionamento }}
+            </span>
+
+            <a href="tel:{{ salao.whatsapp }}">
+                {{ salao.telefone }}
+            </a>
+
+            <a
+                href="https://instagram.com/{{ salao.instagram }}"
+                target="_blank"
+                rel="noopener noreferrer"
+            >
+                Instagram
+            </a>
+
+        </div>
+    </div>
+
+
+    <!-- =====================================================
+         CABEÇALHO
+    ====================================================== -->
+    <header class="header">
+
+        <div class="wrap header-inner">
+
+            <a
+                class="logo"
+                href="#inicio"
+                aria-label="{{ salao.nome }} - início"
+            >
+                <span>
+                    {{ salao.nome }}
+                </span>
+
+                <small>
+                    {{ salao.slogan }}
+                </small>
+            </a>
+
+
+            <nav aria-label="Navegação principal">
+
+                <a href="#agendar">
+                    Agendar
+                </a>
+
+                <a href="#sobre">
+                    Sobre
+                </a>
+
+                <a href="#contato">
+                    Contato
+                </a>
+
+            </nav>
+
+
+            <a
+                class="btn btn-small"
+                href="#agendar"
+            >
+                Agendar horário
+            </a>
+
+        </div>
+
+    </header>
+
+
+    <!-- =====================================================
+         CONTEÚDO PRINCIPAL
+    ====================================================== -->
+    <main id="inicio">
+
+
+        <!-- =================================================
+             HERO
+        ================================================== -->
+        <section class="hero">
+
+            <div class="wrap hero-inner">
+
+                <p class="eyebrow">
+                    {{ salao.slogan }}
+                </p>
+
+                <h1>
+                    Sua beleza
+                    <br>
+
+                    <em>
+                        começa aqui.
+                    </em>
+                </h1>
+
+                <p class="hero-text">
+                    Escolha seu serviço, encontre um horário
+                    e faça seu agendamento de forma simples.
+                </p>
+
+                <a
+                    class="btn"
+                    href="#agendar"
+                >
+                    Agende seu horário
+                </a>
+
+            </div>
+
+        </section>
+
+
+        <!-- =================================================
+             AGENDAMENTO
+        ================================================== -->
+        <section
+            class="agendamento"
+            id="agendar"
+        >
+
+            <div class="wrap">
+
+
+                <!-- Título da seção -->
+                <div class="section-heading">
+
+                    <p class="eyebrow">
+                        Agendamento
+                    </p>
+
+                    <h2>
+                        Reserve seu horário
+                    </h2>
+
+                    <p>
+                        Escolha o serviço, o dia e
+                        o melhor horário para você.
+                    </p>
+
+                </div>
+
+
+                <!-- Painel de agendamento -->
+                <div class="agenda-panel">
+
+
+                    <!-- =====================================
+                         1. SERVIÇO
+                    ====================================== -->
+                    <div class="servicos-box">
+
+                        <h3>
+                            1. Escolha o serviço
+                        </h3>
+
+                        <select
+                            id="servico"
+                            class="service-select"
+                            aria-label="Escolha o serviço"
+                        >
+
+                            <option value="">
+                                Selecione um serviço
+                            </option>
+
+                            {% for categoria, itens in servicos.items() %}
+
+                                <optgroup label="{{ categoria }}">
+
+                                    {% for item in itens %}
+
+                                        <option value="{{ item.nome }}">
+                                            {{ item.nome }} — {{ item.preco }}
+                                            {% if item.descricao %}
+                                                ({{ item.descricao }})
+                                            {% endif %}
+                                        </option>
+
+                                    {% endfor %}
+
+                                </optgroup>
+
+                            {% endfor %}
+
+                        </select>
+
+                    </div>
+
+
+                    <!-- =====================================
+                         2. CALENDÁRIO
+                    ====================================== -->
+                    <div class="calendario-box">
+
+                        <h3>
+                            2. Escolha o dia
+                        </h3>
+
+
+                        <div class="calendario-header">
+
+                            <button
+                                type="button"
+                                id="mes-anterior"
+                                class="nav-mes"
+                                aria-label="Mês anterior"
+                            >
+                                ‹
+                            </button>
+
+
+                            <strong id="mes-titulo"></strong>
+
+
+                            <button
+                                type="button"
+                                id="mes-proximo"
+                                class="nav-mes"
+                                aria-label="Próximo mês"
+                            >
+                                ›
+                            </button>
+
+                        </div>
+
+
+                        <!-- Dias da semana -->
+                        <div
+                            class="semana"
+                            aria-hidden="true"
+                        >
+
+                            <span>Seg</span>
+                            <span>Ter</span>
+                            <span>Qua</span>
+                            <span>Qui</span>
+                            <span>Sex</span>
+                            <span>Sáb</span>
+                            <span>Dom</span>
+
+                        </div>
+
+
+                        <!--
+                            Os dias serão criados pelo
+                            JavaScript.
+                        -->
+                        <div
+                            id="dias"
+                            class="dias"
+                            aria-label="Calendário"
+                        ></div>
+
+
+                        <!-- Legenda -->
+                        <div class="legenda">
+
+                            <span>
+                                <i class="bolinha livre"></i>
+                                Livre
+                            </span>
+
+                            <span>
+                                <i class="bolinha lotado"></i>
+                                Lotado
+                            </span>
+
+                            <span>
+                                <i class="bolinha fechado"></i>
+                                Fechado
+                            </span>
+
+                        </div>
+
+                    </div>
+
+
+                    <!-- =====================================
+                         3. HORÁRIOS
+                    ====================================== -->
+                    <div class="horarios-box">
+
+                        <h3>
+                            3. Escolha o horário
+                        </h3>
+
+                        <div
+                            id="horarios"
+                            class="horarios"
+                        >
+
+                            <p class="sem-horarios">
+                                Escolha um dia para
+                                ver os horários.
+                            </p>
+
+                        </div>
+
+                    </div>
+
+
+                    <!-- =====================================
+                         4. DADOS DA CLIENTE
+                    ====================================== -->
+                    <div class="dados-box">
+
+                        <h3>
+                            4. Seus dados
+                        </h3>
+
+
+                        <label for="nome">
+                            Nome
+                        </label>
+
+                        <input
+                            id="nome"
+                            type="text"
+                            maxlength="80"
+                            autocomplete="name"
+                            placeholder="Seu nome"
+                        >
+
+
+                        <label for="telefone">
+                            WhatsApp
+                        </label>
+
+                        <input
+                            id="telefone"
+                            type="tel"
+                            inputmode="numeric"
+                            autocomplete="tel"
+                            placeholder="(11) 99999-9999"
+                        >
+
+
+                        <button
+                            type="button"
+                            id="confirmar"
+                            class="btn btn-confirmar"
+                            disabled
+                        >
+                            Confirmar agendamento
+                        </button>
+
+
+                        <!--
+                            Mensagens de sucesso ou erro
+                            aparecerão aqui.
+                        -->
+                        <div
+                            id="mensagem"
+                            class="mensagem"
+                            role="status"
+                            aria-live="polite"
+                            hidden
+                        ></div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </section>
+
+
+        <!-- =================================================
+             DIFERENCIAIS
+        ================================================== -->
+        <section class="diferenciais">
+
+            <div class="wrap">
+
+                <div class="cards-diferenciais">
+
+                    {% for item in diferenciais %}
+
+                        <article class="diferencial">
+
+                            <h3>
+                                {{ item.titulo }}
+                            </h3>
+
+                            <p>
+                                {{ item.texto }}
+                            </p>
+
+                        </article>
+
+                    {% endfor %}
+
+                </div>
+
+            </div>
+
+        </section>
+
+
+        <!-- =================================================
+             SOBRE
+        ================================================== -->
+        <section
+            class="sobre"
+            id="sobre"
+        >
+
+            <div class="wrap sobre-inner">
+
+                <div>
+
+                    <p class="eyebrow">
+                        Sobre
+                    </p>
+
+                    <h2>
+                        {{ sobre.titulo }}
+                    </h2>
+
+                </div>
+
+
+                <p>
+                    {{ sobre.texto }}
+                </p>
+
+            </div>
+
+        </section>
+
+    </main>
+
+
+    <!-- =====================================================
+         RODAPÉ
+    ====================================================== -->
+    <footer
+        id="contato"
+        class="footer"
+    >
+
+        <div class="wrap footer-inner">
+
+            <div>
+
+                <strong>
+                    {{ salao.nome }}
+                </strong>
+
+                <span>
+                    {{ salao.slogan }}
+                </span>
+
+            </div>
+
+
+            <div class="footer-links">
+
+                <a href="tel:{{ salao.whatsapp }}">
+                    {{ salao.telefone }}
+                </a>
+
+                <a
+                    href="https://wa.me/{{ salao.whatsapp }}"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                >
+                    WhatsApp
+                </a>
+
+                <a
+                    href="https://instagram.com/{{ salao.instagram }}"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                >
+                    Instagram
+                </a>
+
+            </div>
+
+        </div>
+
+    </footer>
+
+
+    <!-- =====================================================
+         JAVASCRIPT
+    ====================================================== -->
+    <script
+        src="{{ url_for('static', filename='agenda.js') }}"
+        defer
+    ></script>
+
+</body>
+</html>

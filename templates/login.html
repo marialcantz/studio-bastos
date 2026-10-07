@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <meta
+        name="csrf-token"
+        content="{{ csrf_token() }}"
+    >
+
+    <meta
+        name="robots"
+        content="noindex,nofollow"
+    >
+
+    <title>
+        Entrar – {{ salao.nome }}
+    </title>
+
+    <link
+        rel="preconnect"
+        href="https://fonts.googleapis.com"
+    >
+
+    <link
+        rel="preconnect"
+        href="https://fonts.gstatic.com"
+        crossorigin
+    >
+
+    <link
+        href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600&family=Playfair+Display:wght@500;600&display=swap"
+        rel="stylesheet"
+    >
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='style.css') }}"
+    >
+</head>
+
+<body class="pagina-login">
+
+    <main class="login">
+
+        <a
+            class="logo login-logo"
+            href="{{ url_for('home') }}"
+        >
+            <span>
+                {{ salao.nome }}
+            </span>
+
+            <small>
+                Área do salão
+            </small>
+        </a>
+
+
+        <section
+            class="login-card"
+            aria-labelledby="titulo-login"
+        >
+
+            <p class="eyebrow">
+                Área administrativa
+            </p>
+
+            <h1 id="titulo-login">
+                Entrar
+            </h1>
+
+
+            {% if desativado %}
+
+                <div class="alerta erro">
+                    A área administrativa está desativada.
+
+                    Configure o arquivo
+                    <code>segredos.py</code>
+                    antes de usar o painel.
+                </div>
+
+            {% else %}
+
+                {% if erro %}
+
+                    <div
+                        class="alerta erro"
+                        role="alert"
+                    >
+                        {{ erro }}
+                    </div>
+
+                {% endif %}
+
+
+                <form
+                    method="post"
+                    autocomplete="on"
+                >
+
+                    <input
+                        type="hidden"
+                        name="csrf_token"
+                        value="{{ csrf_token() }}"
+                    >
+
+
+                    <label for="senha">
+                        Senha
+                    </label>
+
+                    <input
+                        id="senha"
+                        name="senha"
+                        type="password"
+                        autocomplete="current-password"
+                        required
+                        autofocus
+                    >
+
+
+                    <button
+                        class="btn"
+                        type="submit"
+                    >
+                        Entrar
+                    </button>
+
+                </form>
+
+            {% endif %}
+
+
+            <a
+                class="voltar"
+                href="{{ url_for('home') }}"
+            >
+                Voltar para o site
+            </a>
+
+        </section>
+
+    </main>
+
+</body>
+</html>

@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <meta
+        name="csrf-token"
+        content="{{ csrf_token() }}"
+    >
+
+    <meta
+        name="robots"
+        content="noindex,nofollow"
+    >
+
+    <title>
+        Agenda – {{ salao.nome }}
+    </title>
+
+    <link
+        rel="preconnect"
+        href="https://fonts.googleapis.com"
+    >
+
+    <link
+        rel="preconnect"
+        href="https://fonts.gstatic.com"
+        crossorigin
+    >
+
+    <link
+        href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600&family=Playfair+Display:wght@500;600&display=swap"
+        rel="stylesheet"
+    >
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='style.css') }}"
+    >
+</head>
+
+<body class="pagina-admin">
+
+
+    <!-- =====================================================
+         CABEÇALHO
+    ====================================================== -->
+    <header class="admin-header">
+
+        <div class="wrap admin-header-inner">
+
+            <a
+                class="logo"
+                href="{{ url_for('home') }}"
+            >
+                <span>
+                    {{ salao.nome }}
+                </span>
+
+                <small>
+                    Área administrativa
+                </small>
+            </a>
+
+
+            <div class="admin-actions">
+
+                <a
+                    href="{{ url_for('home') }}"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                >
+                    Ver site
+                </a>
+
+
+                <form
+                    method="post"
+                    action="{{ url_for('admin_sair') }}"
+                >
+
+                    <input
+                        type="hidden"
+                        name="csrf_token"
+                        value="{{ csrf_token() }}"
+                    >
+
+                    <button
+                        type="submit"
+                        class="link-button"
+                    >
+                        Sair
+                    </button>
+
+                </form>
+
+            </div>
+
+        </div>
+
+    </header>
+
+
+    <!-- =====================================================
+         PAINEL
+    ====================================================== -->
+    <main class="admin-main wrap">
+
+
+        <!-- Mensagens -->
+        {% with mensagens = get_flashed_messages(with_categories=true) %}
+
+            {% if mensagens %}
+
+                <div class="flash-list">
+
+                    {% for categoria, mensagem in mensagens %}
+
+                        <div
+                            class="alerta {{ categoria }}"
+                            role="status"
+                        >
+                            {{ mensagem }}
+                        </div>
+
+                    {% endfor %}
+
+                </div>
+
+            {% endif %}
+
+        {% endwith %}
+
+
+        <!-- =================================================
+             MARCAÇÕES
+        ================================================== -->
+        <section class="admin-card">
+
+            <div class="admin-card-heading">
+
+                <div>
+
+                    <p class="eyebrow">
+                        Agenda
+                    </p>
+
+                    <h1>
+                        Próximas marcações
+                    </h1>
+
+                </div>
+
+
+                <strong class="contador">
+                    {{ total }}
+                </strong>
+
+            </div>
+
+
+            {% if grupos %}
+
+                <div class="marcacoes">
+
+                    {% for grupo in grupos %}
+
+                        <div class="dia-agenda">
+
+                            <h2>
+                                {{ grupo.rotulo }}
+                            </h2>
+
+
+                            {% for item in grupo.itens %}
+
+                                <article class="marcacao">
+
+                                    <div class="marcacao-hora">
+                                        {{ item.hora }}
+                                    </div>
+
+
+                                    <div class="marcacao-info">
+
+                                        <strong>
+                                            {{ item.nome }}
+                                        </strong>
+
+                                        <span>
+                                            {{ item.servico }}
+                                        </span>
+
+                                        <a
+                                            href="https://wa.me/55{{ item.telefone }}"
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                        >
+                                            {{ item.telefone_fmt }}
+                                        </a>
+
+                                    </div>
+
+
+                                    <form
+                                        method="post"
+                                        action="{{ url_for('admin_cancelar', id=item.id) }}"
+                                        onsubmit="return confirm('Cancelar esta marcação?');"
+                                    >
+
+                                        <input
+                                            type="hidden"
+                                            name="csrf_token"
+                                            value="{{ csrf_token() }}"
+                                        >
+
+                                        <button
+                                            type="submit"
+                                            class="btn-perigo"
+                                        >
+                                            Cancelar
+                                        </button>
+
+                                    </form>
+
+                                </article>
+
+                            {% endfor %}
+
+                        </div>
+
+                    {% endfor %}
+
+                </div>
+
+            {% else %}
+
+                <p class="vazio">
+                    Nenhuma marcação futura.
+                </p>
+
+            {% endif %}
+
+        </section>
+
+
+        <!-- =================================================
+             BLOQUEAR HORÁRIOS
+        ================================================== -->
+        <section class="admin-card">
+
+            <div class="admin-card-heading">
+
+                <div>
+
+                    <p class="eyebrow">
+                        Disponibilidade
+                    </p>
+
+                    <h2>
+                        Bloquear dia ou horário
+                    </h2>
+
+                </div>
+
+            </div>
+
+
+            <form
+                class="admin-form"
+                method="post"
+                action="{{ url_for('admin_bloquear') }}"
+            >
+
+                <input
+                    type="hidden"
+                    name="csrf_token"
+                    value="{{ csrf_token() }}"
+                >
+
+
+                <div>
+
+                    <label for="data-bloqueio">
+                        Data
+                    </label>
+
+                    <input
+                        id="data-bloqueio"
+                        name="data"
+                        type="date"
+                        min="{{ hoje }}"
+                        required
+                    >
+
+                </div>
+
+
+                <div>
+
+                    <label for="hora-bloqueio">
+                        Horário
+                    </label>
+
+                    <select
+                        id="hora-bloqueio"
+                        name="hora"
+                    >
+
+                        <option value="">
+                            Dia inteiro
+                        </option>
+
+
+                        {% for hora in horarios %}
+
+                            <option value="{{ hora }}">
+                                {{ hora }}
+                            </option>
+
+                        {% endfor %}
+
+                    </select>
+
+                </div>
+
+
+                <div class="campo-largo">
+
+                    <label for="motivo">
+                        Motivo (opcional)
+                    </label>
+
+                    <input
+                        id="motivo"
+                        name="motivo"
+                        maxlength="80"
+                        placeholder="Ex.: compromisso pessoal"
+                    >
+
+                </div>
+
+
+                <button
+                    class="btn"
+                    type="submit"
+                >
+                    Bloquear
+                </button>
+
+            </form>
+
+
+            {% if bloqueios %}
+
+                <div class="lista-bloqueios">
+
+                    <h3>
+                        Bloqueios ativos
+                    </h3>
+
+
+                    {% for bloqueio in bloqueios %}
+
+                        <article class="bloqueio">
+
+                            <div>
+
+                                <strong>
+                                    {{ bloqueio.rotulo }}
+                                    ·
+                                    {{ bloqueio.hora }}
+                                </strong>
+
+
+                                {% if bloqueio.motivo %}
+
+                                    <span>
+                                        {{ bloqueio.motivo }}
+                                    </span>
+
+                                {% endif %}
+
+                            </div>
+
+
+                            <form
+                                method="post"
+                                action="{{ url_for('admin_desbloquear', id=bloqueio.id) }}"
+                            >
+
+                                <input
+                                    type="hidden"
+                                    name="csrf_token"
+                                    value="{{ csrf_token() }}"
+                                >
+
+                                <button
+                                    type="submit"
+                                    class="btn-secundario"
+                                >
+                                    Remover
+                                </button>
+
+                            </form>
+
+                        </article>
+
+                    {% endfor %}
+
+                </div>
+
+            {% endif %}
+
+        </section>
+
+
+        <!-- =================================================
+             CONFIGURAÇÃO DOS HORÁRIOS
+        ================================================== -->
+        <section class="admin-card">
+
+            <div class="admin-card-heading">
+
+                <div>
+
+                    <p class="eyebrow">
+                        Configuração
+                    </p>
+
+                    <h2>
+                        Meus horários de atendimento
+                    </h2>
+
+                </div>
+
+            </div>
+
+
+            <form
+                class="admin-form"
+                method="post"
+                action="{{ url_for('admin_horarios') }}"
+            >
+
+                <input
+                    type="hidden"
+                    name="csrf_token"
+                    value="{{ csrf_token() }}"
+                >
+
+
+                <fieldset>
+
+                    <legend>
+                        Dias de atendimento
+                    </legend>
+
+
+                    <div class="chips">
+
+                        {% for numero, nome in nomes_dias %}
+
+                            <label class="chip">
+
+                                <input
+                                    type="checkbox"
+                                    name="dias"
+                                    value="{{ numero }}"
+                                    {% if numero in dias_abertos %}
+                                        checked
+                                    {% endif %}
+                                >
+
+                                <span>
+                                    {{ nome }}
+                                </span>
+
+                            </label>
+
+                        {% endfor %}
+
+                    </div>
+
+                </fieldset>
+
+
+                <div class="campo-largo">
+
+                    <label for="horarios">
+                        Horários
+                    </label>
+
+                    <textarea
+                        id="horarios"
+                        name="horarios"
+                        rows="3"
+                        placeholder="09:00, 10:00, 11:00"
+                    >{{ horarios_texto }}</textarea>
+
+                    <small>
+                        Separe por vírgula, espaço ou ponto e vírgula.
+                        Ex.: 09:00, 10:00, 11:00.
+                    </small>
+
+                </div>
+
+
+                <button
+                    class="btn"
+                    type="submit"
+                >
+                    Salvar horários
+                </button>
+
+            </form>
+
+        </section>
+
+    </main>
+
+</body>
+</html>
