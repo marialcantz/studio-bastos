@@ -1,6 +1,9 @@
 <!DOCTYPE html>
+
 <html lang="pt-BR">
+
 <head>
+
     <meta charset="UTF-8">
 
     <meta
@@ -19,7 +22,7 @@
     >
 
     <title>
-        {{ salao.nome }} – Agende seu horário
+        {{ salao.nome }} · {{ salao.slogan }}
     </title>
 
     <link
@@ -34,7 +37,7 @@
     >
 
     <link
-        href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600&family=Playfair+Display:wght@500;600&display=swap"
+        href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600&family=Playfair+Display:ital,wght@0,500;0,600;1,500&display=swap"
         rel="stylesheet"
     >
 
@@ -42,39 +45,56 @@
         rel="stylesheet"
         href="{{ url_for('static', filename='style.css') }}"
     >
+
 </head>
 
+
 <body>
+
 
     <!-- =====================================================
          BARRA SUPERIOR
     ====================================================== -->
+
     <div class="topbar">
+
         <div class="wrap topbar-inner">
 
             <span>
                 {{ salao.funcionamento }}
             </span>
 
-            <a href="tel:{{ salao.whatsapp }}">
-                {{ salao.telefone }}
-            </a>
 
-            <a
-                href="https://instagram.com/{{ salao.instagram }}"
-                target="_blank"
-                rel="noopener noreferrer"
-            >
-                Instagram
-            </a>
+            <div class="topbar-links">
+
+                <a
+                    href="https://wa.me/{{ salao.whatsapp }}"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                >
+                    WhatsApp
+                </a>
+
+
+                <a
+                    href="https://instagram.com/{{ salao.instagram }}"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                >
+                    Instagram
+                </a>
+
+            </div>
 
         </div>
+
     </div>
 
 
     <!-- =====================================================
          CABEÇALHO
     ====================================================== -->
+
     <header class="header">
 
         <div class="wrap header-inner">
@@ -84,6 +104,7 @@
                 href="#inicio"
                 aria-label="{{ salao.nome }} - início"
             >
+
                 <span>
                     {{ salao.nome }}
                 </span>
@@ -91,21 +112,26 @@
                 <small>
                     {{ salao.slogan }}
                 </small>
+
             </a>
 
 
             <nav aria-label="Navegação principal">
 
+                <a href="#servicos">
+                    Serviços
+                </a>
+
                 <a href="#agendar">
                     Agendar
                 </a>
 
-                <a href="#sobre">
-                    Sobre
+                <a href="#como-funciona">
+                    Como funciona
                 </a>
 
-                <a href="#contato">
-                    Contato
+                <a href="#studio">
+                    O Studio
                 </a>
 
             </nav>
@@ -115,7 +141,7 @@
                 class="btn btn-small"
                 href="#agendar"
             >
-                Agendar horário
+                Agendar
             </a>
 
         </div>
@@ -123,43 +149,148 @@
     </header>
 
 
-    <!-- =====================================================
-         CONTEÚDO PRINCIPAL
-    ====================================================== -->
     <main id="inicio">
 
 
         <!-- =================================================
              HERO
         ================================================== -->
+
         <section class="hero">
 
-            <div class="wrap hero-inner">
+            <div class="wrap hero-grid">
 
-                <p class="eyebrow">
-                    {{ salao.slogan }}
-                </p>
 
-                <h1>
-                    Sua beleza
-                    <br>
+                <div class="hero-copy">
 
-                    <em>
-                        começa aqui.
-                    </em>
-                </h1>
+                    <p class="eyebrow">
+                        Studio de unhas · cuidado em cada detalhe
+                    </p>
 
-                <p class="hero-text">
-                    Escolha seu serviço, encontre um horário
-                    e faça seu agendamento de forma simples.
-                </p>
 
-                <a
-                    class="btn"
-                    href="#agendar"
-                >
-                    Agende seu horário
-                </a>
+                    <h1>
+                        Unhas que combinam
+
+                        <em>
+                            com você.
+                        </em>
+                    </h1>
+
+
+                    <p class="hero-text">
+
+                        Escolha mais de um serviço,
+                        encontre o melhor horário
+                        e deixe seu atendimento
+                        organizado em poucos passos.
+
+                    </p>
+
+
+                    <div class="hero-actions">
+
+                        <a
+                            class="btn"
+                            href="#agendar"
+                        >
+                            Agendar meu horário
+                        </a>
+
+
+                        <a
+                            class="link-claro"
+                            href="https://instagram.com/{{ salao.instagram }}"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                        >
+                            Ver Instagram →
+                        </a>
+
+                    </div>
+
+
+                    <div class="hero-meta">
+
+                        <div>
+
+                            <strong>
+                                Ter — Sáb
+                            </strong>
+
+                            <span>
+                                Atendimento
+                            </span>
+
+                        </div>
+
+
+                        <div>
+
+                            <strong>
+                                Online
+                            </strong>
+
+                            <span>
+                                Agendamento
+                            </span>
+
+                        </div>
+
+
+                        <div>
+
+                            <strong>
+                                Personalizado
+                            </strong>
+
+                            <span>
+                                Seu estilo
+                            </span>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <aside class="hero-card">
+
+                    <span class="hero-card-numero">
+                        01
+                    </span>
+
+
+                    <p class="hero-card-legenda">
+                        Seu atendimento
+                    </p>
+
+
+                    <h2>
+                        Escolha, combine e reserve.
+                    </h2>
+
+
+                    <p>
+
+                        Alongamento, manutenção
+                        e detalhes podem fazer
+                        parte do mesmo agendamento.
+
+                    </p>
+
+
+                    <div class="hero-card-linha"></div>
+
+
+                    <p class="hero-card-nota">
+
+                        Você verá o valor estimado
+                        antes de confirmar.
+
+                    </p>
+
+                </aside>
 
             </div>
 
@@ -167,8 +298,53 @@
 
 
         <!-- =================================================
+             FAIXA
+        ================================================== -->
+
+        <div
+            class="faixa-servicos"
+            aria-hidden="true"
+        >
+
+            <div class="wrap faixa-servicos-inner">
+
+                <span>
+                    Alongamento
+                </span>
+
+                <i>
+                    ◆
+                </i>
+
+                <span>
+                    Manutenção
+                </span>
+
+                <i>
+                    ◆
+                </i>
+
+                <span>
+                    Nail art
+                </span>
+
+                <i>
+                    ◆
+                </i>
+
+                <span>
+                    Cuidado
+                </span>
+
+            </div>
+
+        </div>
+
+
+        <!-- =================================================
              AGENDAMENTO
         ================================================== -->
+
         <section
             class="agendamento"
             id="agendar"
@@ -177,83 +353,311 @@
             <div class="wrap">
 
 
-                <!-- Título da seção -->
                 <div class="section-heading">
 
                     <p class="eyebrow">
-                        Agendamento
+                        Agendamento online
                     </p>
 
+
                     <h2>
-                        Reserve seu horário
+                        Monte seu atendimento.
                     </h2>
 
+
                     <p>
-                        Escolha o serviço, o dia e
-                        o melhor horário para você.
+
+                        Você pode selecionar vários
+                        serviços antes de escolher
+                        a data e o horário.
+
                     </p>
 
                 </div>
 
 
-                <!-- Painel de agendamento -->
                 <div class="agenda-panel">
 
 
                     <!-- =====================================
-                         1. SERVIÇO
+                         SERVIÇOS
                     ====================================== -->
-                    <div class="servicos-box">
 
-                        <h3>
-                            1. Escolha o serviço
-                        </h3>
+                    <div
+                        class="servicos-box"
+                        id="servicos"
+                    >
 
-                        <select
-                            id="servico"
-                            class="service-select"
-                            aria-label="Escolha o serviço"
-                        >
 
-                            <option value="">
-                                Selecione um serviço
-                            </option>
+                        <div class="box-heading">
+
+                            <div>
+
+                                <span class="passo-numero">
+                                    01
+                                </span>
+
+                                <h3>
+                                    Escolha os serviços
+                                </h3>
+
+                            </div>
+
+
+                            <span
+                                class="contador-selecao"
+                                id="contador-servicos"
+                            >
+                                0 selecionados
+                            </span>
+
+                        </div>
+
+
+                        <p class="box-ajuda">
+
+                            Marque tudo o que deseja
+                            fazer neste atendimento.
+
+                        </p>
+
+
+                        <div class="lista-servicos">
+
 
                             {% for categoria, itens in servicos.items() %}
 
-                                <optgroup label="{{ categoria }}">
 
-                                    {% for item in itens %}
+                                <section class="categoria-servico">
 
-                                        <option value="{{ item.nome }}">
-                                            {{ item.nome }} — {{ item.preco }}
-                                            {% if item.descricao %}
-                                                ({{ item.descricao }})
-                                            {% endif %}
-                                        </option>
 
-                                    {% endfor %}
+                                    <h4>
+                                        {{ categoria }}
+                                    </h4>
 
-                                </optgroup>
+
+                                    <div class="categoria-grid">
+
+
+                                        {% for item in itens %}
+
+
+                                            <div class="servico-card">
+
+
+                                                <label class="servico-check">
+
+
+                                                    <input
+                                                        class="servico-checkbox"
+                                                        type="checkbox"
+
+                                                        value="{{ item.nome }}"
+
+                                                        data-nome="{{ item.nome }}"
+
+                                                        data-valor="{{ item.valor }}"
+
+                                                        data-por-unha="{{ '1' if item.por_unha else '0' }}"
+                                                    >
+
+
+                                                    <span class="check-visual"></span>
+
+
+                                                    <span class="servico-info">
+
+
+                                                        <strong>
+                                                            {{ item.nome }}
+                                                        </strong>
+
+
+                                                        {% if item.descricao %}
+
+                                                            <small>
+                                                                {{ item.descricao }}
+                                                            </small>
+
+                                                        {% endif %}
+
+
+                                                    </span>
+
+
+                                                    <span class="servico-preco">
+                                                        {{ item.preco }}
+                                                    </span>
+
+
+                                                </label>
+
+
+                                                {% if item.por_unha %}
+
+
+                                                    <div
+                                                        class="quantidade-servico"
+                                                        hidden
+                                                    >
+
+
+                                                        <span>
+                                                            Quantidade
+                                                        </span>
+
+
+                                                        <div class="stepper">
+
+
+                                                            <button
+                                                                type="button"
+                                                                class="qtd-menos"
+                                                                aria-label="Diminuir quantidade"
+                                                            >
+                                                                −
+                                                            </button>
+
+
+                                                            <input
+                                                                class="servico-qtd"
+                                                                type="number"
+
+                                                                min="1"
+
+                                                                max="10"
+
+                                                                value="1"
+
+                                                                inputmode="numeric"
+
+                                                                aria-label="Quantidade de unhas"
+                                                            >
+
+
+                                                            <button
+                                                                type="button"
+                                                                class="qtd-mais"
+                                                                aria-label="Aumentar quantidade"
+                                                            >
+                                                                +
+                                                            </button>
+
+
+                                                        </div>
+
+
+                                                    </div>
+
+
+                                                {% endif %}
+
+
+                                            </div>
+
+
+                                        {% endfor %}
+
+
+                                    </div>
+
+
+                                </section>
+
 
                             {% endfor %}
 
-                        </select>
+
+                        </div>
+
+
+                        <!-- RESUMO -->
+
+                        <aside class="resumo-servicos">
+
+
+                            <div class="resumo-topo">
+
+
+                                <div>
+
+                                    <span class="mini-label">
+                                        Seu atendimento
+                                    </span>
+
+                                    <strong>
+                                        Resumo da seleção
+                                    </strong>
+
+                                </div>
+
+
+                                <span
+                                    class="resumo-total"
+                                    id="resumo-total"
+                                >
+                                    R$ 0,00
+                                </span>
+
+
+                            </div>
+
+
+                            <div
+                                class="resumo-lista"
+                                id="resumo-lista"
+                            >
+
+                                <p class="resumo-vazio">
+                                    Nenhum serviço selecionado.
+                                </p>
+
+                            </div>
+
+
+                            <p class="resumo-aviso">
+
+                                O valor é uma estimativa baseada
+                                nos serviços selecionados.
+
+                                A duração do atendimento é
+                                confirmada pelo Studio.
+
+                            </p>
+
+
+                        </aside>
+
 
                     </div>
 
 
                     <!-- =====================================
-                         2. CALENDÁRIO
+                         CALENDÁRIO
                     ====================================== -->
+
                     <div class="calendario-box">
 
-                        <h3>
-                            2. Escolha o dia
-                        </h3>
+
+                        <div class="box-heading">
+
+                            <div>
+
+                                <span class="passo-numero">
+                                    02
+                                </span>
+
+                                <h3>
+                                    Escolha o dia
+                                </h3>
+
+                            </div>
+
+                        </div>
 
 
                         <div class="calendario-header">
+
 
                             <button
                                 type="button"
@@ -277,10 +681,10 @@
                                 ›
                             </button>
 
+
                         </div>
 
 
-                        <!-- Dias da semana -->
                         <div
                             class="semana"
                             aria-hidden="true"
@@ -297,10 +701,6 @@
                         </div>
 
 
-                        <!--
-                            Os dias serão criados pelo
-                            JavaScript.
-                        -->
                         <div
                             id="dias"
                             class="dias"
@@ -308,37 +708,65 @@
                         ></div>
 
 
-                        <!-- Legenda -->
                         <div class="legenda">
 
+
                             <span>
+
                                 <i class="bolinha livre"></i>
+
                                 Livre
+
                             </span>
 
+
                             <span>
+
                                 <i class="bolinha lotado"></i>
+
                                 Lotado
+
                             </span>
 
+
                             <span>
+
                                 <i class="bolinha fechado"></i>
+
                                 Fechado
+
                             </span>
+
 
                         </div>
+
 
                     </div>
 
 
                     <!-- =====================================
-                         3. HORÁRIOS
+                         HORÁRIO
                     ====================================== -->
+
                     <div class="horarios-box">
 
-                        <h3>
-                            3. Escolha o horário
-                        </h3>
+
+                        <div class="box-heading">
+
+                            <div>
+
+                                <span class="passo-numero">
+                                    03
+                                </span>
+
+                                <h3>
+                                    Escolha o horário
+                                </h3>
+
+                            </div>
+
+                        </div>
+
 
                         <div
                             id="horarios"
@@ -346,76 +774,219 @@
                         >
 
                             <p class="sem-horarios">
+
                                 Escolha um dia para
                                 ver os horários.
+
                             </p>
 
                         </div>
+
 
                     </div>
 
 
                     <!-- =====================================
-                         4. DADOS DA CLIENTE
+                         DADOS
                     ====================================== -->
+
                     <div class="dados-box">
 
-                        <h3>
-                            4. Seus dados
-                        </h3>
+
+                        <div class="box-heading dados-heading">
+
+                            <div>
+
+                                <span class="passo-numero">
+                                    04
+                                </span>
+
+                                <h3>
+                                    Seus dados
+                                </h3>
+
+                            </div>
+
+                        </div>
 
 
-                        <label for="nome">
-                            Nome
-                        </label>
-
-                        <input
-                            id="nome"
-                            type="text"
-                            maxlength="80"
-                            autocomplete="name"
-                            placeholder="Seu nome"
-                        >
+                        <div class="campo">
 
 
-                        <label for="telefone">
-                            WhatsApp
-                        </label>
+                            <label for="nome">
+                                Nome
+                            </label>
 
-                        <input
-                            id="telefone"
-                            type="tel"
-                            inputmode="numeric"
-                            autocomplete="tel"
-                            placeholder="(11) 99999-9999"
-                        >
+
+                            <input
+                                id="nome"
+
+                                type="text"
+
+                                maxlength="80"
+
+                                autocomplete="name"
+
+                                placeholder="Como podemos te chamar?"
+                            >
+
+
+                        </div>
+
+
+                        <div class="campo">
+
+
+                            <label for="telefone">
+                                WhatsApp
+                            </label>
+
+
+                            <input
+                                id="telefone"
+
+                                type="tel"
+
+                                inputmode="numeric"
+
+                                autocomplete="tel"
+
+                                maxlength="15"
+
+                                placeholder="(11) 99999-9999"
+                            >
+
+
+                        </div>
 
 
                         <button
                             type="button"
+
                             id="confirmar"
+
                             class="btn btn-confirmar"
+
                             disabled
                         >
                             Confirmar agendamento
                         </button>
 
 
-                        <!--
-                            Mensagens de sucesso ou erro
-                            aparecerão aqui.
-                        -->
                         <div
                             id="mensagem"
+
                             class="mensagem"
+
                             role="status"
+
                             aria-live="polite"
+
                             hidden
                         ></div>
 
+
                     </div>
 
+
                 </div>
+
+            </div>
+
+        </section>
+
+
+        <!-- =================================================
+             COMO FUNCIONA
+        ================================================== -->
+
+        <section
+            class="como-funciona"
+            id="como-funciona"
+        >
+
+            <div class="wrap">
+
+
+                <div class="section-heading section-heading-claro">
+
+                    <p class="eyebrow">
+                        Simples e rápido
+                    </p>
+
+                    <h2>
+                        Como funciona
+                    </h2>
+
+                </div>
+
+
+                <div class="passos-grid">
+
+
+                    <article class="passo-card">
+
+                        <span>
+                            01
+                        </span>
+
+                        <h3>
+                            Monte seu atendimento
+                        </h3>
+
+                        <p>
+
+                            Escolha um ou mais serviços
+                            e veja o valor estimado da combinação.
+
+                        </p>
+
+                    </article>
+
+
+                    <article class="passo-card">
+
+                        <span>
+                            02
+                        </span>
+
+                        <h3>
+                            Escolha seu horário
+                        </h3>
+
+                        <p>
+
+                            Consulte os dias disponíveis
+                            e selecione o horário que
+                            funciona melhor para você.
+
+                        </p>
+
+                    </article>
+
+
+                    <article class="passo-card">
+
+                        <span>
+                            03
+                        </span>
+
+                        <h3>
+                            Pronto
+                        </h3>
+
+                        <p>
+
+                            Informe seu nome e WhatsApp
+                            e confirme o agendamento.
+
+                        </p>
+
+                    </article>
+
+
+                </div>
+
 
             </div>
 
@@ -425,29 +996,57 @@
         <!-- =================================================
              DIFERENCIAIS
         ================================================== -->
+
         <section class="diferenciais">
 
             <div class="wrap">
 
+
+                <div class="section-heading">
+
+                    <p class="eyebrow">
+                        A experiência
+                    </p>
+
+                    <h2>
+                        Cuidado além do resultado.
+                    </h2>
+
+                </div>
+
+
                 <div class="cards-diferenciais">
+
 
                     {% for item in diferenciais %}
 
+
                         <article class="diferencial">
+
+
+                            <span class="diferencial-numero">
+                                0{{ loop.index }}
+                            </span>
+
 
                             <h3>
                                 {{ item.titulo }}
                             </h3>
 
+
                             <p>
                                 {{ item.texto }}
                             </p>
 
+
                         </article>
+
 
                     {% endfor %}
 
+
                 </div>
+
 
             </div>
 
@@ -455,35 +1054,368 @@
 
 
         <!-- =================================================
-             SOBRE
+             INFORMAÇÕES
         ================================================== -->
+
         <section
-            class="sobre"
-            id="sobre"
+            class="informacoes-studio"
+            id="studio"
         >
 
-            <div class="wrap sobre-inner">
+            <div class="wrap">
 
-                <div>
+
+                <div class="informacoes-topo">
+
 
                     <p class="eyebrow">
-                        Sobre
+                        Studio Bastos
+                    </p>
+
+
+                    <h2>
+                        Tudo o que você precisa saber.
+                    </h2>
+
+
+                    <p class="informacoes-intro">
+
+                        Informações úteis para deixar
+                        seu atendimento mais simples
+                        desde o primeiro contato.
+
+                    </p>
+
+
+                </div>
+
+
+                <div class="info-grid">
+
+
+                    <!-- SOBRE -->
+
+                    <article class="info-card">
+
+
+                        <p class="info-categoria">
+                            Sobre
+                        </p>
+
+
+                        <h3>
+                            Conheça o Studio
+                        </h3>
+
+
+                        <p>
+
+                            No Studio Bastos,
+                            cada atendimento é pensado
+                            para valorizar o seu estilo
+                            e proporcionar um momento
+                            de cuidado.
+
+                        </p>
+
+
+                        <p>
+
+                            Alongamentos, manutenções
+                            e detalhes podem ser combinados
+                            em um único agendamento.
+
+                        </p>
+
+
+                    </article>
+
+
+                    <!-- LOCALIZAÇÃO -->
+
+                    <article
+                        class="info-card"
+                        id="localizacao"
+                    >
+
+
+                        <p class="info-categoria">
+                            Localização
+                        </p>
+
+
+                        <h3>
+                            Onde estamos
+                        </h3>
+
+
+                        <p>
+                            {{ salao.endereco }}
+                        </p>
+
+
+                        {% if salao.maps %}
+
+
+                            <a
+                                href="{{ salao.maps }}"
+
+                                target="_blank"
+
+                                rel="noopener noreferrer"
+
+                                class="link-info"
+                            >
+                                Abrir no Google Maps →
+                            </a>
+
+
+                        {% endif %}
+
+
+                    </article>
+
+
+                    <!-- ATENDIMENTO -->
+
+                    <article class="info-card">
+
+
+                        <p class="info-categoria">
+                            Atendimento
+                        </p>
+
+
+                        <h3>
+                            Horários
+                        </h3>
+
+
+                        <p>
+                            {{ salao.funcionamento }}
+                        </p>
+
+
+                        <p>
+                            Atendimento realizado
+                            mediante agendamento.
+                        </p>
+
+
+                        <a
+                            href="#agendar"
+                            class="link-info"
+                        >
+                            Agendar horário →
+                        </a>
+
+
+                    </article>
+
+
+                    <!-- PAGAMENTO -->
+
+                    <article class="info-card">
+
+
+                        <p class="info-categoria">
+                            Pagamento
+                        </p>
+
+
+                        <h3>
+                            Formas de pagamento
+                        </h3>
+
+
+                        <p>
+                            {{ salao.pagamentos }}
+                        </p>
+
+
+                    </article>
+
+
+                    <!-- CONTATO -->
+
+                    <article class="info-card">
+
+
+                        <p class="info-categoria">
+                            Contato
+                        </p>
+
+
+                        <h3>
+                            Fale com o Studio
+                        </h3>
+
+
+                        <p>
+                            {{ salao.telefone }}
+                        </p>
+
+
+                        <p>
+
+                            Para dúvidas sobre
+                            o atendimento,
+                            fale diretamente
+                            pelo WhatsApp.
+
+                        </p>
+
+
+                        <a
+                            href="https://wa.me/{{ salao.whatsapp }}"
+
+                            target="_blank"
+
+                            rel="noopener noreferrer"
+
+                            class="link-info"
+                        >
+                            Abrir WhatsApp →
+                        </a>
+
+
+                    </article>
+
+
+                    <!-- INSTAGRAM -->
+
+                    <article class="info-card">
+
+
+                        <p class="info-categoria">
+                            Redes sociais
+                        </p>
+
+
+                        <h3>
+                            Acompanhe os trabalhos
+                        </h3>
+
+
+                        <p>
+
+                            Veja novidades,
+                            inspirações e trabalhos
+                            publicados pelo Studio.
+
+                        </p>
+
+
+                        <a
+                            href="https://instagram.com/{{ salao.instagram }}"
+
+                            target="_blank"
+
+                            rel="noopener noreferrer"
+
+                            class="link-info"
+                        >
+                            @{{ salao.instagram }} →
+                        </a>
+
+
+                    </article>
+
+
+                </div>
+
+
+            </div>
+
+        </section>
+
+
+        <!-- =================================================
+             DÚVIDAS
+        ================================================== -->
+
+        <section class="duvidas">
+
+            <div class="wrap duvidas-grid">
+
+
+                <div class="section-heading">
+
+                    <p class="eyebrow">
+                        Dúvidas rápidas
                     </p>
 
                     <h2>
-                        {{ sobre.titulo }}
+                        Antes de agendar.
                     </h2>
 
                 </div>
 
 
-                <p>
-                    {{ sobre.texto }}
-                </p>
+                <div class="faq">
+
+
+                    <details>
+
+                        <summary>
+                            Posso escolher mais de um serviço?
+                        </summary>
+
+                        <p>
+
+                            Sim. Marque todos os serviços
+                            desejados antes de escolher
+                            o dia e o horário.
+
+                        </p>
+
+                    </details>
+
+
+                    <details>
+
+                        <summary>
+                            O valor mostrado é o valor final?
+                        </summary>
+
+                        <p>
+
+                            O site mostra uma estimativa
+                            baseada na seleção.
+
+                            Serviços com quantidade
+                            ou detalhes personalizados
+                            podem ser confirmados pelo Studio.
+
+                        </p>
+
+                    </details>
+
+
+                    <details>
+
+                        <summary>
+                            Preciso alterar ou cancelar?
+                        </summary>
+
+                        <p>
+
+                            Entre em contato com o Studio
+                            pelo WhatsApp para ajustar
+                            seu atendimento.
+
+                        </p>
+
+                    </details>
+
+
+                </div>
+
 
             </div>
 
         </section>
+
 
     </main>
 
@@ -491,6 +1423,7 @@
     <!-- =====================================================
          RODAPÉ
     ====================================================== -->
+
     <footer
         id="contato"
         class="footer"
@@ -498,7 +1431,8 @@
 
         <div class="wrap footer-inner">
 
-            <div>
+
+            <div class="footer-brand">
 
                 <strong>
                     {{ salao.nome }}
@@ -513,40 +1447,48 @@
 
             <div class="footer-links">
 
-                <a href="tel:{{ salao.whatsapp }}">
-                    {{ salao.telefone }}
-                </a>
 
                 <a
                     href="https://wa.me/{{ salao.whatsapp }}"
+
                     target="_blank"
+
                     rel="noopener noreferrer"
                 >
                     WhatsApp
                 </a>
 
+
                 <a
                     href="https://instagram.com/{{ salao.instagram }}"
+
                     target="_blank"
+
                     rel="noopener noreferrer"
                 >
                     Instagram
                 </a>
 
+
+                <a href="#inicio">
+                    Voltar ao topo ↑
+                </a>
+
+
             </div>
+
 
         </div>
 
     </footer>
 
 
-    <!-- =====================================================
-         JAVASCRIPT
-    ====================================================== -->
     <script
         src="{{ url_for('static', filename='agenda.js') }}"
         defer
     ></script>
 
+
 </body>
+
 </html>
